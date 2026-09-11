@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gymnasion_db
+    restart: always
+    environment:
+      POSTGRES_DB: gymnasion_db
+      POSTGRES_USER: gymnasion_user
+      POSTGRES_PASSWORD: gymnasion_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - gymnasion_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: gymnasion_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gymnasion.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5433:5433"
+    depends_on:
+      - postgres
+    networks:
+      - gymnasion_network
+
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  gymnasion_network:
+    driver: bridge
