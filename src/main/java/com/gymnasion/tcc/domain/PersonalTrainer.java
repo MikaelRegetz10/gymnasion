@@ -4,6 +4,7 @@ import com.gymnasion.tcc.domain.Modalidade;
 import com.gymnasion.tcc.domain.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
+import java.util.UUID;
 
 @Entity
 @Table(name = "personal_trainer")
@@ -15,8 +16,8 @@ import lombok.*;
 public class PersonalTrainer {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false, unique = true)

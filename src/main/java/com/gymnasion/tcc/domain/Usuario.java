@@ -1,8 +1,18 @@
 package com.gymnasion.tcc.domain;
 
+import com.gymnasion.tcc.domain.enums.Role;
 import jakarta.persistence.*;
+import java.util.UUID;
 import lombok.*;
+import org.jspecify.annotations.Nullable;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "usuario")
@@ -11,11 +21,11 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Usuario {
+public class Usuario implements UserDetails {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(nullable = false, length = 150)
     private String nome;
@@ -29,17 +39,31 @@ public class Usuario {
     @Column(nullable = false, unique = true, length = 11)
     private String cpf;
 
-    @Column(name = "ultimo_acesso")
-    private OffsetDateTime ultimoAcesso;
-
+    @Builder.Default
     @Column(name = "data_criacao", nullable = false, updatable = false)
-    private OffsetDateTime dataCriacao;
+    private OffsetDateTime dataCriacao = OffsetDateTime.now();
 
     @Column(nullable = false, length = 13)
     private String celular;
 
-    @PrePersist
-    protected void onCreate() {
-        this.dataCriacao = OffsetDateTime.now();
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role;
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        if (this.role == Role.ADMIN) return List.of(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ROLE_PERSONAL_TRAINER"), new SimpleGrantedAuthority("ROLE_ALUNO"));
+        else if (this.role == Role.PERSONAL_TRAINER) return List.of(new SimpleGrantedAuthority("ROLE_PERSONAL_TRAINER"));
+        else return List.of(new SimpleGrantedAuthority("ROLE_ALUNO"));
+    }
+
+    @Override
+    public @Nullable String getPassword() {
+        return senhaHash;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
     }
 }

@@ -1,24 +1,24 @@
 CREATE TABLE usuario (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nome VARCHAR(150) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     senha_hash VARCHAR(255) NOT NULL,
     cpf VARCHAR(11) NOT NULL UNIQUE,
-    ultimo_acesso TIMESTAMPTZ,
     data_criacao TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    celular VARCHAR(13) NOT NULL
+    celular VARCHAR(13) NOT NULL,
+    role VARCHAR(20) NOT NULL
 );
 
 CREATE TABLE modalidade (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nome VARCHAR(50) NOT NULL,
     descricao TEXT
 );
 
 CREATE TABLE personal_trainer (
-    id BIGSERIAL PRIMARY KEY,
-    usuario_id BIGINT NOT NULL UNIQUE,
-    modalidade_id BIGINT,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID NOT NULL UNIQUE,
+    modalidade_id UUID,
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_personal_usuario FOREIGN KEY (usuario_id)
     REFERENCES usuario(id) ON DELETE CASCADE,
@@ -27,9 +27,9 @@ CREATE TABLE personal_trainer (
 );
 
 CREATE TABLE aluno (
-    id BIGSERIAL PRIMARY KEY,
-    usuario_id BIGINT NOT NULL UNIQUE,
-    personal_id BIGINT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID NOT NULL UNIQUE,
+    personal_id UUID NOT NULL,
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_aluno_usuario FOREIGN KEY (usuario_id)
     REFERENCES usuario(id) ON DELETE CASCADE,
@@ -39,9 +39,9 @@ CREATE TABLE aluno (
 
 
 CREATE TABLE define_usuario_personal_trainer_aluno (
-    usuario_id BIGINT NOT NULL,
-    personal_trainer_id BIGINT NOT NULL,
-    aluno_id BIGINT NOT NULL,
+    usuario_id UUID NOT NULL,
+    personal_trainer_id UUID NOT NULL,
+    aluno_id UUID NOT NULL,
     PRIMARY KEY (usuario_id, personal_trainer_id, aluno_id),
     CONSTRAINT fk_define_usuario FOREIGN KEY (usuario_id)
     REFERENCES usuario(id) ON DELETE CASCADE,
@@ -52,8 +52,8 @@ CREATE TABLE define_usuario_personal_trainer_aluno (
 );
 
 CREATE TABLE termo_aceite (
-    id BIGSERIAL PRIMARY KEY,
-    usuario_id BIGINT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID NOT NULL,
     versao VARCHAR(20) NOT NULL,
     data_aceite TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_termo_usuario FOREIGN KEY (usuario_id)
@@ -61,8 +61,8 @@ CREATE TABLE termo_aceite (
 );
 
 CREATE TABLE integracao_strava (
-    id BIGSERIAL PRIMARY KEY,
-    aluno_id BIGINT NOT NULL UNIQUE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    aluno_id UUID NOT NULL UNIQUE,
     access_token VARCHAR(255) NOT NULL,
     refresh_token VARCHAR(255) NOT NULL,
     expira_em TIMESTAMPTZ NOT NULL,
@@ -71,17 +71,17 @@ CREATE TABLE integracao_strava (
 );
 
 CREATE TABLE turma (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nome VARCHAR(100) NOT NULL,
-    personal_id BIGINT NOT NULL,
+    personal_id UUID NOT NULL,
     horario TIMESTAMPTZ,
     CONSTRAINT fk_turma_personal FOREIGN KEY (personal_id)
     REFERENCES personal_trainer(id) ON DELETE CASCADE
 );
 
 CREATE TABLE praticada (
-    aluno_id BIGINT NOT NULL,
-    modalidade_id BIGINT NOT NULL,
+    aluno_id UUID NOT NULL,
+    modalidade_id UUID NOT NULL,
     PRIMARY KEY (aluno_id, modalidade_id),
     CONSTRAINT fk_praticada_aluno FOREIGN KEY (aluno_id)
     REFERENCES aluno(id) ON DELETE CASCADE,
@@ -90,8 +90,8 @@ CREATE TABLE praticada (
 );
 
 CREATE TABLE contem (
-    aluno_id BIGINT NOT NULL,
-    turma_id BIGINT NOT NULL,
+    aluno_id UUID NOT NULL,
+    turma_id UUID NOT NULL,
     PRIMARY KEY (aluno_id, turma_id),
     CONSTRAINT fk_contem_aluno FOREIGN KEY (aluno_id)
     REFERENCES aluno(id) ON DELETE CASCADE,
@@ -100,19 +100,19 @@ CREATE TABLE contem (
 );
 
 CREATE TABLE rotina_treino (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     titulo VARCHAR(100) NOT NULL,
     objetivo VARCHAR(255),
     frequencia_semanal INT,
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
-    personal_trainer_id BIGINT NOT NULL,
+    personal_trainer_id UUID NOT NULL,
     CONSTRAINT fk_rotina_personal FOREIGN KEY (personal_trainer_id)
     REFERENCES personal_trainer(id) ON DELETE CASCADE
 );
 
 CREATE TABLE segue (
-    aluno_id BIGINT NOT NULL,
-    rotina_treino_id BIGINT NOT NULL,
+    aluno_id UUID NOT NULL,
+    rotina_treino_id UUID NOT NULL,
     PRIMARY KEY (aluno_id, rotina_treino_id),
     CONSTRAINT fk_segue_aluno FOREIGN KEY (aluno_id)
     REFERENCES aluno(id) ON DELETE CASCADE,
@@ -121,8 +121,8 @@ CREATE TABLE segue (
 );
 
 CREATE TABLE sessao_treino (
-    id BIGSERIAL PRIMARY KEY,
-    rotina_treino_id BIGINT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    rotina_treino_id UUID NOT NULL,
     data_execucao DATE NOT NULL,
     duracao INT,
     CONSTRAINT fk_sessao_rotina FOREIGN KEY (rotina_treino_id)
@@ -130,8 +130,8 @@ CREATE TABLE sessao_treino (
 );
 
 CREATE TABLE desempenho (
-    id BIGSERIAL PRIMARY KEY,
-    sessao_treino_id BIGINT NOT NULL UNIQUE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sessao_treino_id UUID NOT NULL UNIQUE,
     data_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     nivel_cansaco INT CHECK (nivel_cansaco BETWEEN 1 AND 10),
     CONSTRAINT fk_desempenho_sessao FOREIGN KEY (sessao_treino_id)
@@ -139,11 +139,11 @@ CREATE TABLE desempenho (
 );
 
 CREATE TABLE metrica (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     titulo VARCHAR(100) NOT NULL,
     tipo VARCHAR(50) NOT NULL,
-    modalidade_id BIGINT NOT NULL,
-    personal_trainer_id BIGINT NOT NULL,
+    modalidade_id UUID NOT NULL,
+    personal_trainer_id UUID NOT NULL,
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_metrica_modalidade FOREIGN KEY (modalidade_id)
     REFERENCES modalidade(id) ON DELETE RESTRICT,
@@ -153,9 +153,9 @@ CREATE TABLE metrica (
 );
 
 CREATE TABLE registro_metrica (
-    id BIGSERIAL PRIMARY KEY,
-    desempenho_id BIGINT NOT NULL,
-    metrica_id BIGINT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    desempenho_id UUID NOT NULL,
+    metrica_id UUID NOT NULL,
     valor VARCHAR(255) NOT NULL,
     CONSTRAINT fk_registro_desempenho FOREIGN KEY (desempenho_id)
     REFERENCES desempenho(id) ON DELETE CASCADE,
@@ -164,17 +164,17 @@ CREATE TABLE registro_metrica (
 );
 
 CREATE TABLE relatorio (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     data_inicio DATE NOT NULL,
     data_fim DATE NOT NULL,
-    personal_trainer_id BIGINT NOT NULL,
+    personal_trainer_id UUID NOT NULL,
     CONSTRAINT fk_relatorio_personal FOREIGN KEY (personal_trainer_id)
     REFERENCES personal_trainer(id) ON DELETE CASCADE
 );
 
 CREATE TABLE consolida (
-    relatorio_id BIGINT NOT NULL,
-    desempenho_id BIGINT NOT NULL,
+    relatorio_id UUID NOT NULL,
+    desempenho_id UUID NOT NULL,
     PRIMARY KEY (relatorio_id, desempenho_id),
     CONSTRAINT fk_consolida_relatorio FOREIGN KEY (relatorio_id)
     REFERENCES relatorio(id) ON DELETE CASCADE,

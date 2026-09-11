@@ -5,6 +5,7 @@ import lombok.*;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "relatorio")
@@ -16,8 +17,8 @@ import java.util.Set;
 public class Relatorio {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "data_inicio", nullable = false)
     private LocalDate dataInicio;
