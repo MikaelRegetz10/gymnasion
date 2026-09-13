@@ -1,12 +1,11 @@
 package com.gymnasion.tcc.dto;
 
-import com.gymnasion.tcc.domain.enums.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-public record UsuarioRequestDTO(
+public record RegistroPersonalCompletoDTO(
     @NotBlank(message = "O nome é obrigatório.")
     @Size(max = 150)
     String nome,
@@ -26,6 +25,9 @@ public record UsuarioRequestDTO(
 
     @NotBlank(message = "O celular é obrigatório.")
     @Size(max = 13)
-    String celular
+    String celular,
 
-) {}
+    @NotNull(message = "A modalidade é obrigatória")
+    Long modalidade
+){
+}

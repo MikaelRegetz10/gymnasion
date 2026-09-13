@@ -24,10 +24,10 @@ public class AuthService {
 
     public TokenResponseDTO login(LoginRequestDTO dto) {
         Usuario user = userRepository.findByEmail(dto.email().toLowerCase().trim())
-                .orElseThrow(() -> new BadCredentialsException("Credenciais inválidas."));
+                .orElseThrow(() -> new BadCredentialsException("E-mail ou senha inválidos."));
 
         if (!passwordEncoder.matches(dto.password(), user.getPassword())) {
-            throw new BadCredentialsException("Credenciais inválidas.");
+            throw new BadCredentialsException("E-mail ou senha inválidos.");
         }
 
         String token = tokenService.generateToken(user);

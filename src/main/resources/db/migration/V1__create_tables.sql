@@ -10,7 +10,7 @@ CREATE TABLE usuario (
 );
 
 CREATE TABLE modalidade (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     nome VARCHAR(50) NOT NULL,
     descricao TEXT
 );
@@ -18,7 +18,7 @@ CREATE TABLE modalidade (
 CREATE TABLE personal_trainer (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id UUID NOT NULL UNIQUE,
-    modalidade_id UUID,
+    modalidade_id BIGINT, 
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_personal_usuario FOREIGN KEY (usuario_id)
     REFERENCES usuario(id) ON DELETE CASCADE,
@@ -36,7 +36,6 @@ CREATE TABLE aluno (
     CONSTRAINT fk_aluno_personal FOREIGN KEY (personal_id)
     REFERENCES personal_trainer(id) ON DELETE RESTRICT
 );
-
 
 CREATE TABLE define_usuario_personal_trainer_aluno (
     usuario_id UUID NOT NULL,
@@ -81,7 +80,7 @@ CREATE TABLE turma (
 
 CREATE TABLE praticada (
     aluno_id UUID NOT NULL,
-    modalidade_id UUID NOT NULL,
+    modalidade_id BIGINT NOT NULL, 
     PRIMARY KEY (aluno_id, modalidade_id),
     CONSTRAINT fk_praticada_aluno FOREIGN KEY (aluno_id)
     REFERENCES aluno(id) ON DELETE CASCADE,
@@ -142,7 +141,7 @@ CREATE TABLE metrica (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     titulo VARCHAR(100) NOT NULL,
     tipo VARCHAR(50) NOT NULL,
-    modalidade_id UUID NOT NULL,
+    modalidade_id BIGINT NOT NULL,
     personal_trainer_id UUID NOT NULL,
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_metrica_modalidade FOREIGN KEY (modalidade_id)
@@ -182,9 +181,18 @@ CREATE TABLE consolida (
     REFERENCES desempenho(id) ON DELETE CASCADE
 );
 
--- ============================================================================
--- CRIAÇÃO DE ÍNDICES PARA OTIMIZAÇÃO
--- ============================================================================
+CREATE TABLE personal_convites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    token VARCHAR(255) UNIQUE NOT NULL,
+    personal_id UUID NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ATIVO',
+    maximo_usuarios INT DEFAULT 30,
+    quantidades_usuarios INT DEFAULT 0,
+    data_expiracao TIMESTAMP NOT NULL,
+    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_personal FOREIGN KEY (personal_id)
+    REFERENCES personal_trainer(id) ON DELETE CASCADE
+);
 
 CREATE INDEX idx_usuario_email ON usuario(email);
 CREATE INDEX idx_aluno_personal ON aluno(personal_id);

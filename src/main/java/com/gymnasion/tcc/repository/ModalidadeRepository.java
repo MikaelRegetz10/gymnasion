@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 import java.util.UUID;
 
 @Repository
-public interface ModalidadeRepository extends JpaRepository<Modalidade, UUID> {
+public interface ModalidadeRepository extends JpaRepository<Modalidade, Long> {
 }

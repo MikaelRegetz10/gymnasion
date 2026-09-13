@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.infra;
 
+import com.gymnasion.tcc.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -87,10 +88,22 @@ public class RestExceptionHandler {
     public ProblemDetail handleBadCredentialsException(BadCredentialsException ex) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.UNAUTHORIZED,
-                "Usuário ou senha incorretos."
+                ex.getMessage()
         );
         problemDetail.setTitle("Credenciais Inválidas");
         problemDetail.setType(URI.create("https://api.gymnasion.com/errors/credenciais-invalidas"));
+        problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ProblemDetail handleNotFoundException(NotFoundException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Não Encontrado");
+        problemDetail.setType(URI.create("https://api.gymnasion.com/errors/not-found"));
         problemDetail.setProperty("timestamp", Instant.now());
         return problemDetail;
     }

@@ -25,7 +25,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@gymnasion.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "5433:5433"
+      - "5433:80"
     depends_on:
       - postgres
     networks:

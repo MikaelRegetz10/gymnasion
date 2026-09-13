@@ -1,9 +1,6 @@
 package com.gymnasion.tcc.controller;
 
-import com.gymnasion.tcc.dto.LoginRequestDTO;
-import com.gymnasion.tcc.dto.TokenResponseDTO;
-import com.gymnasion.tcc.dto.UsuarioRequestDTO;
-import com.gymnasion.tcc.dto.UsuarioResponseDTO;
+import com.gymnasion.tcc.dto.*;
 import com.gymnasion.tcc.service.AuthService;
 import com.gymnasion.tcc.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -24,7 +21,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/registro-personal")
-    public ResponseEntity<UsuarioResponseDTO> registrarPersonal(@Valid @RequestBody UsuarioRequestDTO dto) {
+    public ResponseEntity<UsuarioResponseDTO> registrarPersonal(@Valid @RequestBody RegistroPersonalCompletoDTO dto) {
         UsuarioResponseDTO response = userService.criarPersonal(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
