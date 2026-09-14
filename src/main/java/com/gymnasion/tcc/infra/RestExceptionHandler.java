@@ -1,6 +1,9 @@
 package com.gymnasion.tcc.infra;
 
-import com.gymnasion.tcc.NotFoundException;
+import com.gymnasion.tcc.exceptions.BusinessException;
+import com.gymnasion.tcc.exceptions.DuplicateResourceException;
+import com.gymnasion.tcc.exceptions.NotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -104,6 +107,42 @@ public class RestExceptionHandler {
         );
         problemDetail.setTitle("Não Encontrado");
         problemDetail.setType(URI.create("https://api.gymnasion.com/errors/not-found"));
+        problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ProblemDetail handleBusinessException(BusinessException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Violação de Regra de Negócio");
+        problemDetail.setType(URI.create("https://api.gymnasion.com/errors/regra-de-negocio"));
+        problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ProblemDetail handleDuplicateResourceException(DuplicateResourceException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Conflito de Dados");
+        problemDetail.setType(URI.create("https://api.gymnasion.com/errors/conflito-dados"));
+        problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "Conflito de integridade de dados: registro duplicado ou restrição violada."
+        );
+        problemDetail.setTitle("Conflito de Dados");
+        problemDetail.setType(URI.create("https://api.gymnasion.com/errors/conflito-dados"));
         problemDetail.setProperty("timestamp", Instant.now());
         return problemDetail;
     }

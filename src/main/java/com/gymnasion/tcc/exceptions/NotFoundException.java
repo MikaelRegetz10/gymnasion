@@ -1,4 +1,4 @@
-package com.gymnasion.tcc;
+package com.gymnasion.tcc.exceptions;
 
 public class NotFoundException extends RuntimeException {
     public NotFoundException(String message) {

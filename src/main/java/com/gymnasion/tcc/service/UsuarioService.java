@@ -1,12 +1,11 @@
 package com.gymnasion.tcc.service;
 
-import com.gymnasion.tcc.NotFoundException;
+import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.domain.Modalidade;
 import com.gymnasion.tcc.domain.PersonalTrainer;
 import com.gymnasion.tcc.domain.Usuario;
 import com.gymnasion.tcc.domain.enums.Role;
 import com.gymnasion.tcc.dto.RegistroPersonalCompletoDTO;
-import com.gymnasion.tcc.dto.UsuarioRequestDTO;
 import com.gymnasion.tcc.dto.UsuarioResponseDTO;
 import com.gymnasion.tcc.repository.ModalidadeRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;

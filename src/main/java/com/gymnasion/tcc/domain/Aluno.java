@@ -1,5 +1,7 @@
 package com.gymnasion.tcc.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.gymnasion.tcc.domain.enums.StatusConvite;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.HashSet;
@@ -25,11 +27,13 @@ public class Aluno {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "personal_id", nullable = false)
+    @JsonIgnore
     private PersonalTrainer personal;
 
     @Builder.Default
-    @Column(nullable = false)
-    private Boolean ativo = false;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private StatusConvite status = StatusConvite.PENDENTE;
 
     @ManyToMany
     @JoinTable(

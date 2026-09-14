@@ -27,6 +27,10 @@ public class PersonalConvites {
     @Column(name = "personal_id", nullable = false)
     private UUID personalId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "modalidade_id", nullable = false)
+    private Modalidade modalidade;
+
     @Column(nullable = false, length = 20)
     @Builder.Default
     @Enumerated(EnumType.STRING)
@@ -47,4 +51,3 @@ public class PersonalConvites {
     @Column(name = "data_criacao", updatable = false)
     private LocalDateTime dataCriacao;
 }
-
