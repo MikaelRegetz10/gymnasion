@@ -1,0 +1,500 @@
+{
+  "info": {
+    "_postman_id": "259c8f6d-7299-4870-92e5-4d2198195b2f",
+    "name": "Gymnasion",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "32605299"
+  },
+  "item": [
+    {
+      "name": "auth",
+      "item": [
+        {
+          "name": "Registro Aluno",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Aluno Teste TESTE\",\n  \"email\": \"aluno@em.com\",\n  \"password\": \"senhaSegura123\",\n  \"cpf\": \"34563113100\",\n  \"celular\": \"61999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/registro-aluno-convite?token=b9d78d73-7153-4fc0-b7c8-898250ceba5a",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "registro-aluno-convite"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "b9d78d73-7153-4fc0-b7c8-898250ceba5a"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Aluno",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Converte a resposta em JSON",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "if (jsonData && jsonData.token) {",
+                  "    // Salva na variável da coleção (Current Value)",
+                  "    pm.collectionVariables.set(\"token\", jsonData.token);",
+                  "    console.log(\"Novo Token JWT salvo:\", pm.collectionVariables.get(\"token\"));",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"aluno@email.com\",\n    \"password\": \"senhaSegura123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Personal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Converte a resposta em JSON",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "if (jsonData && jsonData.token) {",
+                  "    // Salva na variável da coleção (Current Value)",
+                  "    pm.collectionVariables.set(\"token\", jsonData.token);",
+                  "    console.log(\"Novo Token JWT salvo:\", pm.collectionVariables.get(\"token\"));",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"teste@teste.com\",\n    \"password\": \"Teste123@\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Converte a resposta em JSON",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "if (jsonData && jsonData.token) {",
+                  "    // Salva na variável da coleção (Current Value)",
+                  "    pm.collectionVariables.set(\"token\", jsonData.token);",
+                  "    console.log(\"Novo Token JWT salvo:\", pm.collectionVariables.get(\"token\"));",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@admin.com\",\n    \"password\": \"admin@12\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Amanda Souza Silva\",\n  \"email\": \"amanda.personal@tes.com\",\n  \"password\": \"senhaSegura123\",\n  \"cpf\": \"00000000000\",\n  \"celular\": \"11999998888\",\n  \"modalidade\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/registro-personal",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "registro-personal"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "personal-trainner",
+      "item": [
+        {
+          "name": "convite aluno",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modalidadeId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/personal-trainer/convite-aluno",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "personal-trainer",
+                "convite-aluno"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Aluno Pendentes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/personal-trainer/alunos/pendentes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "personal-trainer",
+                "alunos",
+                "pendentes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Aluno",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/personal-trainer/alunos/pendentes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "personal-trainer",
+                "alunos",
+                "pendentes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "aceitar aluno",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/personal-trainer/atletas/98ed32d2-6e64-433a-857e-5abcb693e88d/aprovar",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "personal-trainer",
+                "atletas",
+                "98ed32d2-6e64-433a-857e-5abcb693e88d",
+                "aprovar"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "modalidades",
+      "item": [
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ]
+}

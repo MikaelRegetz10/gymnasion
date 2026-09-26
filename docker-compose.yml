@@ -6,9 +6,9 @@ services:
     container_name: gymnasion_db
     restart: always
     environment:
-      POSTGRES_DB: gymnasion_db
-      POSTGRES_USER: gymnasion_user
-      POSTGRES_PASSWORD: gymnasion_pass
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -16,14 +16,19 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - gymnasion_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: gymnasion_pgadmin
     restart: always
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@gymnasion.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
       - "5433:80"
     depends_on:
@@ -31,6 +36,27 @@ services:
     networks:
       - gymnasion_network
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gymnasion_app
+    restart: always
+    ports:
+      - "${SERVER_PORT}:8080"
+    env_file:
+      - .env
+    environment:
+      # Sobrescreve apenas a URL de conexão para apontar para o container do banco na rede Docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_SERVLET_CONTEXT_PATH: ${CONTEXT_PATH}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gymnasion_network
 
 volumes:
   postgres_data:
