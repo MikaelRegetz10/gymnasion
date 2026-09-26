@@ -20,4 +20,12 @@ public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
             "LEFT JOIN FETCH a.modalidades " +
             "WHERE p.id = :personalId AND a.status = :status")
     List<Aluno> findByPersonalIdAndStatus(@Param("personalId") UUID personalId, @Param("status") StatusConvite status);
+
+    @Query("SELECT DISTINCT a FROM Aluno a " +
+            "JOIN FETCH a.usuario " +
+            "JOIN FETCH a.personal p " +
+            "JOIN FETCH p.usuario " +
+            "LEFT JOIN FETCH a.modalidades " +
+            "WHERE p.id = :personalId")
+    List<Aluno> findByPersonalId(@Param("personalId") UUID personalId);
 }

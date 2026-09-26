@@ -14,13 +14,14 @@ import jakarta.persistence.Enumerated;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,7 +29,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class PersonalConviteService {
 
     private final AlunoRepository alunoRepository;
@@ -37,6 +38,9 @@ public class PersonalConviteService {
     private final PersonalConvitesRepository personalConviteRepository;
     private final PasswordEncoder passwordEncoder;
     private final ModalidadeRepository modalidadeRepository;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     @Transactional
     public ConviteResponseDTO gerarLinkConvite(Usuario usuario, GerarConviteRequestDTO dto){
@@ -60,8 +64,7 @@ public class PersonalConviteService {
 
         personalConviteRepository.save(convite);
 
-        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        String fullUrl = baseUrl + "/invite?token=" + token;
+        String fullUrl = frontendUrl + "/cadastro-aluno?token=" + token;
 
         return new ConviteResponseDTO(fullUrl);
     }
@@ -89,10 +92,6 @@ public class PersonalConviteService {
 
         if (convite.getQuantidadesUsuarios() >= convite.getMaximoUsuarios()) {
             throw new BusinessException("O limite de utilizações deste link de convite foi atingido.");
-        }
-
-        if (usuarioRepository.findByEmail(dto.email()).isPresent()) {
-            throw new DuplicateResourceException("Este e-mail já está cadastrado no sistema.");
         }
 
         Usuario usuario = Usuario.builder()
@@ -161,7 +160,7 @@ public class PersonalConviteService {
     @Transactional
     public AlunoResponseDTO aprovarAluno(UUID alunoId, Usuario usuarioLogado) {
         PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuarioLogado)
-                .orElseThrow(() -> new UsernameNotFoundException("Personal Trainer não encontrado!"));
+                .orElseThrow(() -> new NotFoundException("Personal Trainer não encontrado!"));
 
         Aluno aluno = alunoRepository.findById(alunoId)
                 .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
@@ -178,5 +177,24 @@ public class PersonalConviteService {
         aluno = alunoRepository.save(aluno);
 
         return toAlunoResponseDTO(aluno);
+    }
+
+    @Transactional
+    public void recusarAluno(UUID alunoId, Usuario usuarioLogado) {
+        PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuarioLogado)
+                .orElseThrow(() -> new NotFoundException("Personal Trainer não encontrado!"));
+
+        Aluno aluno = alunoRepository.findById(alunoId)
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+
+        if (!aluno.getPersonal().getId().equals(personalTrainer.getId())) {
+            throw new BusinessException("Você não tem permissão para gerenciar este aluno.");
+        }
+
+        if (aluno.getStatus() != StatusConvite.PENDENTE) {
+            throw new BusinessException("Este aluno não está pendente de aprovação.");
+        }
+
+        alunoRepository.delete(aluno);
     }
 }

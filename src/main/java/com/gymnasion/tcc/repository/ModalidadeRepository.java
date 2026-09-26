@@ -7,4 +7,5 @@ import java.util.UUID;
 
 @Repository
 public interface ModalidadeRepository extends JpaRepository<Modalidade, Long> {
+    boolean existsByNomeIgnoreCase(String nome);
 }

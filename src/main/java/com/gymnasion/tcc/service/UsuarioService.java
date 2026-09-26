@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.service;
 
+import com.gymnasion.tcc.exceptions.DuplicateResourceException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.domain.Modalidade;
 import com.gymnasion.tcc.domain.PersonalTrainer;
@@ -34,11 +35,17 @@ public class UsuarioService {
         Modalidade modalidade = modalidadeRepository.findById(dto.modalidade())
                 .orElseThrow(() -> new NotFoundException("Modalidade não encontrada."));
 
+        String cpfLimpo = dto.cpf().replaceAll("\\D", "");
+
+        if (usuarioRepository.existsByCpf(cpfLimpo)) {
+            throw new DuplicateResourceException("Este CPF já está cadastrado no sistema.");
+        }
+
         Usuario usuario = Usuario.builder()
                 .nome(dto.nome().trim())
                 .email(email)
                 .senhaHash(passwordEncoder.encode(dto.password()))
-                .cpf(dto.cpf().replaceAll("\\D", ""))
+                .cpf(cpfLimpo)
                 .celular(dto.celular().replaceAll("\\D", ""))
                 .role(Role.PERSONAL_TRAINER)
                 .build();

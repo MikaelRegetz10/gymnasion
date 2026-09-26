@@ -4,6 +4,7 @@ import com.gymnasion.tcc.domain.Usuario;
 import com.gymnasion.tcc.dto.AlunoResponseDTO;
 import com.gymnasion.tcc.dto.ConviteResponseDTO;
 import com.gymnasion.tcc.dto.GerarConviteRequestDTO;
+import com.gymnasion.tcc.service.AlunoService;
 import com.gymnasion.tcc.service.PersonalConviteService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class PersonalTrainerController {
 
     private final PersonalConviteService conviteService;
+    private final AlunoService alunoService;
 
     @PostMapping("/convite-aluno")
     public ResponseEntity<ConviteResponseDTO> gerarLinkConvite(@AuthenticationPrincipal Usuario usuario, @Valid @RequestBody GerarConviteRequestDTO dto){
@@ -36,5 +38,19 @@ public class PersonalTrainerController {
             @PathVariable("alunoId") UUID alunoId,
             @AuthenticationPrincipal Usuario usuario) {
         return ResponseEntity.ok(conviteService.aprovarAluno(alunoId, usuario));
+    }
+
+    @PatchMapping("/atletas/{alunoId}/recusar")
+    public ResponseEntity<AlunoResponseDTO> recusarAluno(
+            @PathVariable("alunoId") UUID alunoId,
+            @AuthenticationPrincipal Usuario usuario) {
+
+        conviteService.recusarAluno(alunoId, usuario);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/alunos")
+    public ResponseEntity<List<AlunoResponseDTO>> getAlunos(@AuthenticationPrincipal Usuario usuario) {
+        return ResponseEntity.ok(alunoService.getAlunosVinculados(usuario));
     }
 }
