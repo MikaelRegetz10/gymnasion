@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -28,4 +29,6 @@ public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
             "LEFT JOIN FETCH a.modalidades " +
             "WHERE p.id = :personalId")
     List<Aluno> findByPersonalId(@Param("personalId") UUID personalId);
+
+    Optional<Aluno> findByIdAndPersonalId(UUID id, UUID personalId);
 }

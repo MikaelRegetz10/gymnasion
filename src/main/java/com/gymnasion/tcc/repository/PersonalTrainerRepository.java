@@ -12,4 +12,6 @@ import java.util.UUID;
 public interface PersonalTrainerRepository extends JpaRepository<PersonalTrainer, UUID> {
     Optional<PersonalTrainer> getByUsuario(Usuario usuario);
     PersonalTrainer getById(UUID id);
+
+    Optional<Object> findByUsuarioId(UUID id);
 }

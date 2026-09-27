@@ -122,17 +122,6 @@ public class PersonalConviteService {
         return toAlunoResponseDTO(aluno);
     }
 
-    @org.springframework.transaction.annotation.Transactional
-    public List<AlunoResponseDTO> getAlunosPendentes(Usuario usuario){
-        PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuario)
-                .orElseThrow(() -> new UsernameNotFoundException("Personal não encontrado!"));
-
-        return alunoRepository.findByPersonalIdAndStatus(personalTrainer.getId(), StatusConvite.PENDENTE)
-                .stream()
-                .map(this::toAlunoResponseDTO)
-                .toList();
-    }
-
     private AlunoResponseDTO toAlunoResponseDTO(Aluno aluno) {
         Set<ModalidadeResponseDTO> modalidadesDTO = aluno.getModalidades().stream()
                 .map(m -> new ModalidadeResponseDTO(m.getId(), m.getNome(), m.getDescricao()))
@@ -157,44 +146,5 @@ public class PersonalConviteService {
         );
     }
 
-    @Transactional
-    public AlunoResponseDTO aprovarAluno(UUID alunoId, Usuario usuarioLogado) {
-        PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuarioLogado)
-                .orElseThrow(() -> new NotFoundException("Personal Trainer não encontrado!"));
 
-        Aluno aluno = alunoRepository.findById(alunoId)
-                .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
-
-        if (!aluno.getPersonal().getId().equals(personalTrainer.getId())) {
-            throw new BusinessException("Você não tem permissão para gerenciar este aluno.");
-        }
-
-        if (aluno.getStatus() != StatusConvite.PENDENTE) {
-            throw new BusinessException("Este aluno não está pendente de aprovação.");
-        }
-
-        aluno.setStatus(StatusConvite.ATIVO);
-        aluno = alunoRepository.save(aluno);
-
-        return toAlunoResponseDTO(aluno);
-    }
-
-    @Transactional
-    public void recusarAluno(UUID alunoId, Usuario usuarioLogado) {
-        PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuarioLogado)
-                .orElseThrow(() -> new NotFoundException("Personal Trainer não encontrado!"));
-
-        Aluno aluno = alunoRepository.findById(alunoId)
-                .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
-
-        if (!aluno.getPersonal().getId().equals(personalTrainer.getId())) {
-            throw new BusinessException("Você não tem permissão para gerenciar este aluno.");
-        }
-
-        if (aluno.getStatus() != StatusConvite.PENDENTE) {
-            throw new BusinessException("Este aluno não está pendente de aprovação.");
-        }
-
-        alunoRepository.delete(aluno);
-    }
 }
