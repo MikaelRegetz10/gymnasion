@@ -1,7 +1,9 @@
 package com.gymnasion.tcc.domain;
 
+import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.util.UUID;
 
 @Entity
@@ -26,8 +28,9 @@ public class Metrica {
     @Column(nullable = false, length = 100)
     private String titulo;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String tipo;
+    private TipoMetrica tipo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "modalidade_id", nullable = false)
