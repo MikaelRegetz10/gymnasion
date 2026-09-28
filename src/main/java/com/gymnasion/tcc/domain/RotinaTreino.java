@@ -2,6 +2,7 @@ package com.gymnasion.tcc.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -19,18 +20,18 @@ public class RotinaTreino {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, length = 150)
     private String titulo;
 
-    @Column(length = 255)
-    private String objetivo;
+    @Column(columnDefinition = "TEXT")
+    private String objetivos;
 
-    @Column(name = "frequencia_semanal")
+    @Column(name = "frequencia_semanal", nullable = false)
     private Integer frequenciaSemanal;
 
-    @Builder.Default
-    @Column(nullable = false)
-    private Boolean ativo = true;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "modalidade_id", nullable = false)
+    private Modalidade modalidade;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "personal_trainer_id", nullable = false)
@@ -42,5 +43,15 @@ public class RotinaTreino {
             joinColumns = @JoinColumn(name = "rotina_treino_id"),
             inverseJoinColumns = @JoinColumn(name = "aluno_id")
     )
+    @Builder.Default
     private Set<Aluno> alunos = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "rotina_treino_metrica",
+            joinColumns = @JoinColumn(name = "rotina_treino_id"),
+            inverseJoinColumns = @JoinColumn(name = "metrica_id")
+    )
+    @Builder.Default
+    private Set<Metrica> metricas = new HashSet<>();
 }

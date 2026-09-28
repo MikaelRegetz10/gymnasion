@@ -1,0 +1,1 @@
+ALTER TABLE rotina_treino ADD COLUMN objetivos TEXT;

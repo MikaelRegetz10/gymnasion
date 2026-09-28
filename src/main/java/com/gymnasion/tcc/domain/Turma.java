@@ -2,6 +2,7 @@ package com.gymnasion.tcc.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -27,6 +28,10 @@ public class Turma {
     @JoinColumn(name = "personal_id", nullable = false)
     private PersonalTrainer personal;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "modalidade_id", nullable = false)
+    private Modalidade modalidade;
+
     @Column
     private OffsetDateTime horario;
 
@@ -36,5 +41,6 @@ public class Turma {
             joinColumns = @JoinColumn(name = "turma_id"),
             inverseJoinColumns = @JoinColumn(name = "aluno_id")
     )
+    @Builder.Default
     private Set<Aluno> alunos = new HashSet<>();
 }
