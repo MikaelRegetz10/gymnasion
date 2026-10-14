@@ -2,6 +2,7 @@ package com.gymnasion.tcc.infra;
 
 import com.gymnasion.tcc.exceptions.BusinessException;
 import com.gymnasion.tcc.exceptions.DuplicateResourceException;
+import com.gymnasion.tcc.exceptions.MetricasInvalidasException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -108,6 +109,19 @@ public class RestExceptionHandler {
         problemDetail.setTitle("Não Encontrado");
         problemDetail.setType(URI.create("https://api.gymnasion.com/errors/not-found"));
         problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(MetricasInvalidasException.class)
+    public ProblemDetail handleMetricasInvalidasException(MetricasInvalidasException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Valores de Métricas Inválidos");
+        problemDetail.setType(URI.create("https://api.gymnasion.com/errors/metricas-invalidas"));
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("invalidFields", ex.getCamposInvalidos());
         return problemDetail;
     }
 

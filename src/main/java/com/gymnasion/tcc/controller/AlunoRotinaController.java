@@ -1,6 +1,7 @@
 package com.gymnasion.tcc.controller;
 
 import com.gymnasion.tcc.domain.Usuario;
+import com.gymnasion.tcc.dto.FormularioExecucaoResponseDTO;
 import com.gymnasion.tcc.dto.PlanejamentoRotinaResponseDTO;
 import com.gymnasion.tcc.dto.RegistrarExecucaoSessaoRequestDTO;
 import com.gymnasion.tcc.dto.SessaoTreinoResponseDTO;
@@ -37,9 +38,19 @@ public class AlunoRotinaController {
         return ResponseEntity.ok(rotinaTreinoService.consultarPlanejamento(usuario, rotinaId));
     }
 
+    @GetMapping("/sessoes/{sessaoId}/execucao")
+    @Operation(summary = "Acessar o registro de execução da sessão (US-22 C1)", description = "Retorna os dados da sessão e as métricas configuradas pelo personal, com tipo, obrigatoriedade e responsável pelo preenchimento, para montar o formulário de registro.")
+    @ApiResponse(responseCode = "200", description = "Formulário de registro retornado com sucesso.")
+    public ResponseEntity<FormularioExecucaoResponseDTO> obterFormularioExecucao(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("sessaoId") UUID sessaoId) {
+        return ResponseEntity.ok(rotinaTreinoService.obterFormularioExecucao(usuario, sessaoId));
+    }
+
     @PostMapping("/sessoes/{sessaoId}/execucao")
-    @Operation(summary = "Registrar execução e confirmar conclusão do treino pelo aluno (US-10 C3, C4, C5 / US-22)", description = "Aluno registra a data real de execução (preservando a planejada), RPE e métricas permitidas, confirmando a conclusão da sessão.")
+    @Operation(summary = "Registrar execução e confirmar conclusão do treino pelo aluno (US-10 C3, C4, C5 / US-22)", description = "Aluno registra a data real de execução (preservando a planejada), RPE e métricas permitidas, confirmando a conclusão da sessão. Métricas obrigatórias do aluno devem ser informadas; opcionais podem ser omitidas e as exclusivas do personal ficam pendentes. Após a confirmação, o registro não pode ser alterado pelo aluno.")
     @ApiResponse(responseCode = "200", description = "Execução registrada e sessão concluída com sucesso.")
+    @ApiResponse(responseCode = "422", description = "Sessão já confirmada (correções via US-23), métricas obrigatórias não preenchidas ou valores inválidos para o tipo configurado.")
     public ResponseEntity<SessaoTreinoResponseDTO> registrarExecucao(
             @AuthenticationPrincipal Usuario usuario,
             @PathVariable("sessaoId") UUID sessaoId,
