@@ -32,13 +32,13 @@ public class AcompanhamentoTreinoService {
         Aluno aluno = alunoRepository.findByIdAndPersonalId(alunoId, personal.getId())
                 .orElseThrow(() -> new NotFoundException("Aluno não encontrado ou não pertence a este Personal Trainer."));
 
-        // Busca a rotina ativa do aluno
-        List<RotinaTreino> rotinasAtivas = rotinaTreinoRepository.findByPersonalTrainerIdAndAlunosId(personal.getId(), aluno.getId())
-                .stream()
-                .filter(r -> Boolean.TRUE.equals(r.getAtivo()))
-                .toList();
+        // Busca a rotina ativa do aluno, ou a mais recente caso a rotina tenha sido encerrada (US-25 C8)
+        List<RotinaTreino> todasRotinas = rotinaTreinoRepository.findByPersonalTrainerIdAndAlunosId(personal.getId(), aluno.getId());
 
-        RotinaTreino rotinaAtiva = rotinasAtivas.isEmpty() ? null : rotinasAtivas.get(0);
+        RotinaTreino rotinaAtiva = todasRotinas.stream()
+                .filter(r -> Boolean.TRUE.equals(r.getAtivo()))
+                .findFirst()
+                .orElse(!todasRotinas.isEmpty() ? todasRotinas.get(todasRotinas.size() - 1) : null);
 
         List<SessaoTreino> sessoes = rotinaAtiva != null
                 ? sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaAtiva.getId())
@@ -111,22 +111,33 @@ public class AcompanhamentoTreinoService {
         int totalGeralPendencias = 0;
 
         for (Aluno aluno : alunos) {
-            List<RotinaTreino> rotinasAtivas = rotinaTreinoRepository.findByPersonalTrainerIdAndAlunosId(personal.getId(), aluno.getId())
-                    .stream()
-                    .filter(r -> Boolean.TRUE.equals(r.getAtivo()))
-                    .toList();
+            List<RotinaTreino> todasRotinas = rotinaTreinoRepository.findByPersonalTrainerIdAndAlunosId(personal.getId(), aluno.getId());
 
-            if (rotinasAtivas.isEmpty()) {
+            if (todasRotinas.isEmpty()) {
                 sincronizarNotificacaoAluno(personal, aluno, 0);
                 continue;
             }
 
-            RotinaTreino rotina = rotinasAtivas.get(0);
-            List<SessaoTreino> sessoes = sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotina.getId());
+            RotinaTreino rotinaReferencia = todasRotinas.stream()
+                    .filter(r -> Boolean.TRUE.equals(r.getAtivo()))
+                    .findFirst()
+                    .orElse(todasRotinas.get(todasRotinas.size() - 1));
 
             int pendenciasAluno = 0;
-            for (SessaoTreino sessao : sessoes) {
-                pendenciasAluno += extrairPendenciasSessao(sessao).size();
+            RotinaTreino rotinaComPendencia = rotinaReferencia;
+
+            // US-25 C8: Considera sessões da rotina ativa ou sessões concluídas de rotinas encerradas
+            for (RotinaTreino rotina : todasRotinas) {
+                List<SessaoTreino> sessoes = sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotina.getId());
+                for (SessaoTreino sessao : sessoes) {
+                    if (Boolean.TRUE.equals(rotina.getAtivo()) || sessao.getStatus() == StatusSessaoTreino.CONCLUIDA) {
+                        int qtd = extrairPendenciasSessao(sessao).size();
+                        if (qtd > 0) {
+                            pendenciasAluno += qtd;
+                            rotinaComPendencia = rotina;
+                        }
+                    }
+                }
             }
 
             // US-24 C4/C5/C6: Atualiza ou remove notificação do aluno
@@ -138,8 +149,8 @@ public class AcompanhamentoTreinoService {
                 itens.add(new ResumoPendenciasResponseDTO.AlunoPendenciaItemDTO(
                         aluno.getId(),
                         nome,
-                        rotina.getId(),
-                        rotina.getTitulo(),
+                        rotinaComPendencia.getId(),
+                        rotinaComPendencia.getTitulo(),
                         pendenciasAluno
                 ));
             }
@@ -191,17 +202,15 @@ public class AcompanhamentoTreinoService {
             return;
         }
 
-        List<RotinaTreino> rotinasAtivas = rotinaTreinoRepository.findByPersonalTrainerIdAndAlunosId(personal.getId(), alunoCompleto.getId())
-                .stream()
-                .filter(r -> Boolean.TRUE.equals(r.getAtivo()))
-                .toList();
+        List<RotinaTreino> todasRotinas = rotinaTreinoRepository.findByPersonalTrainerIdAndAlunosId(personal.getId(), alunoCompleto.getId());
 
         int pendencias = 0;
-        if (!rotinasAtivas.isEmpty()) {
-            RotinaTreino rotina = rotinasAtivas.get(0);
+        for (RotinaTreino rotina : todasRotinas) {
             List<SessaoTreino> sessoes = sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotina.getId());
             for (SessaoTreino sessao : sessoes) {
-                pendencias += extrairPendenciasSessao(sessao).size();
+                if (Boolean.TRUE.equals(rotina.getAtivo()) || sessao.getStatus() == StatusSessaoTreino.CONCLUIDA) {
+                    pendencias += extrairPendenciasSessao(sessao).size();
+                }
             }
         }
 

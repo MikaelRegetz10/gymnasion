@@ -102,6 +102,30 @@ public class RotinaTreinoController {
         return ResponseEntity.ok(rotinaTreinoService.encerrarRotina(usuario, rotinaId));
     }
 
+    @PostMapping("/{id}/reutilizar")
+    @Operation(summary = "Reutilizar rotina pela lista de rotinas (US-25 C1)", description = "Cria uma nova rotina independente usando uma rotina existente como modelo, escolhendo o aluno e a nova data de início. Recalcula as datas planejadas e não copia histórico ou execuções.")
+    @ApiResponse(responseCode = "201", description = "Rotina reutilizada/criada com sucesso.")
+    @ApiResponse(responseCode = "400", description = "Aluno já possui rotina ativa ou está inativo.")
+    public ResponseEntity<RotinaTreinoResponseDTO> reutilizarRotina(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("id") UUID rotinaId,
+            @Valid @RequestBody ReutilizarRotinaRequestDTO dto) {
+        RotinaTreinoResponseDTO response = rotinaTreinoService.reutilizarRotina(usuario, rotinaId, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/aluno/{alunoId}/atribuir")
+    @Operation(summary = "Atribuir rotina a partir do perfil do aluno (US-25 C2)", description = "Atribui uma rotina de treino existente ao aluno selecionado a partir de uma nova data de início.")
+    @ApiResponse(responseCode = "201", description = "Rotina atribuída com sucesso.")
+    @ApiResponse(responseCode = "400", description = "Aluno já possui rotina ativa ou está inativo.")
+    public ResponseEntity<RotinaTreinoResponseDTO> atribuirRotina(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("alunoId") UUID alunoId,
+            @Valid @RequestBody AtribuirRotinaAlunoRequestDTO dto) {
+        RotinaTreinoResponseDTO response = rotinaTreinoService.atribuirRotina(usuario, alunoId, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
 
     @PostMapping("/{id}/sessoes")
     @Operation(summary = "Adicionar sessão ao planejamento da rotina (US-10 C1)", description = "Adiciona uma sessão de treino organizada por semana na rotina.")

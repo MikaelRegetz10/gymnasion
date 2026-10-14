@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -254,11 +256,121 @@ public class RotinaTreinoService {
         return toResponseDTO(rotina);
     }
 
-
-
     // =========================================================================
-    // US-10: Gerenciar rotinas de treinamento
+    // US-25: Reutilizar e atribuir rotinas / encerrar rotina
     // =========================================================================
+
+    @Transactional
+    public RotinaTreinoResponseDTO reutilizarRotina(Usuario usuario, UUID rotinaOrigemId, ReutilizarRotinaRequestDTO dto) {
+        return reutilizarRotinaInterno(usuario, rotinaOrigemId, dto.alunoId(), dto.dataInicio(), dto.titulo(), dto.objetivos());
+    }
+
+    @Transactional
+    public RotinaTreinoResponseDTO atribuirRotina(Usuario usuario, UUID alunoId, AtribuirRotinaAlunoRequestDTO dto) {
+        return reutilizarRotinaInterno(usuario, dto.rotinaOrigemId(), alunoId, dto.dataInicio(), dto.titulo(), dto.objetivos());
+    }
+
+    private RotinaTreinoResponseDTO reutilizarRotinaInterno(
+            Usuario usuario,
+            UUID rotinaOrigemId,
+            UUID alunoId,
+            LocalDate dataInicio,
+            String tituloPersonalizado,
+            String objetivosPersonalizados
+    ) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+
+        RotinaTreino rotinaOrigem = rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaOrigemId, personal.getId())
+                .orElseThrow(() -> new NotFoundException("Rotina de treino não encontrada."));
+
+        Aluno aluno = alunoRepository.findByIdAndPersonalId(alunoId, personal.getId())
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado ou não pertence a este Personal Trainer."));
+
+        // RN-014: Aluno inativo
+        if (aluno.getStatus() == StatusConvite.INATIVO) {
+            throw new BusinessException("Erro. Este aluno está inativo.");
+        }
+
+        // US-25 C6: Máximo de 1 rotina ativa por aluno
+        if (rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())) {
+            String nome = aluno.getUsuario() != null ? aluno.getUsuario().getNome() : "selecionado";
+            throw new BusinessException("O aluno " + nome + " já possui uma rotina de treino ativa. A rotina atual precisa ser encerrada antes.");
+        }
+
+        String titulo = (tituloPersonalizado != null && !tituloPersonalizado.trim().isEmpty())
+                ? tituloPersonalizado.trim()
+                : rotinaOrigem.getTitulo();
+
+        String objetivos = objetivosPersonalizados != null ? objetivosPersonalizados : rotinaOrigem.getObjetivos();
+
+        // US-25 C3 / C5 / C9: Nova rotina como cópia independente, vinculada ao aluno, ativa
+        RotinaTreino novaRotina = RotinaTreino.builder()
+                .titulo(titulo)
+                .modalidade(rotinaOrigem.getModalidade())
+                .frequenciaSemanal(rotinaOrigem.getFrequenciaSemanal())
+                .objetivos(objetivos)
+                .personalTrainer(personal)
+                .ativo(true)
+                .alunos(new HashSet<>(Set.of(aluno)))
+                .metricas(new HashSet<>(rotinaOrigem.getMetricas()))
+                .sessoes(new ArrayList<>())
+                .build();
+
+        // US-25 C3 e C4: Copia estrutura das sessões e recalcula datas planejadas conforme nova data de início
+        List<SessaoTreino> sessoesOrigem = (rotinaOrigem.getSessoes() != null && !rotinaOrigem.getSessoes().isEmpty())
+                ? rotinaOrigem.getSessoes()
+                : sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaOrigem.getId());
+
+        if (sessoesOrigem != null && !sessoesOrigem.isEmpty()) {
+            List<SessaoTreino> sessoesOrdenadas = sessoesOrigem.stream()
+                    .sorted(Comparator.comparing(SessaoTreino::getSemana, Comparator.nullsLast(Comparator.naturalOrder()))
+                            .thenComparing(SessaoTreino::getDataPlanejada, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .toList();
+
+            LocalDate dataMinimaOrigem = sessoesOrdenadas.stream()
+                    .map(SessaoTreino::getDataPlanejada)
+                    .filter(Objects::nonNull)
+                    .min(LocalDate::compareTo)
+                    .orElse(null);
+
+            for (SessaoTreino so : sessoesOrdenadas) {
+                long offsetDias;
+                if (dataMinimaOrigem != null && so.getDataPlanejada() != null) {
+                    offsetDias = ChronoUnit.DAYS.between(dataMinimaOrigem, so.getDataPlanejada());
+                } else {
+                    int semanaNum = (so.getSemana() != null && so.getSemana() > 0) ? so.getSemana() - 1 : 0;
+                    offsetDias = semanaNum * 7L;
+                }
+
+                LocalDate novaDataPlanejada = dataInicio.plusDays(offsetDias);
+
+                // C3 e C9: Status PLANEJADA, sem resultados, datas reais ou desempenho da origem
+                SessaoTreino novaSessao = SessaoTreino.builder()
+                        .rotinaTreino(novaRotina)
+                        .semana(so.getSemana())
+                        .dataPlanejada(novaDataPlanejada)
+                        .duracao(so.getDuracao())
+                        .atividades(so.getAtividades())
+                        .status(StatusSessaoTreino.PLANEJADA)
+                        .concluidaAluno(false)
+                        .validadaPersonal(false)
+                        .dataReal(null)
+                        .desempenho(null)
+                        .build();
+
+                novaRotina.getSessoes().add(novaSessao);
+            }
+        }
+
+        novaRotina = rotinaTreinoRepository.save(novaRotina);
+
+        // US-24: Sincroniza notificações para o aluno
+        if (acompanhamentoTreinoService != null) {
+            acompanhamentoTreinoService.sincronizarNotificacaoParaAluno(aluno);
+        }
+
+        return toResponseDTO(novaRotina);
+    }
 
     @Transactional
     public SessaoTreinoResponseDTO adicionarSessao(Usuario usuario, UUID rotinaId, CriarSessaoTreinoRequestDTO dto) {

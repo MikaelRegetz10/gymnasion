@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -1151,6 +1152,288 @@ class RotinaTreinoServiceTest {
                 .hasMessage("É necessário informar pelo menos um resultado de métrica.");
 
         verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
+    }
+
+    @Test
+    @DisplayName("US25 Cenários 1 e 4: Reutilizar rotina pela lista de rotinas e recalcular datas de semanas e sessões")
+    void US25_cenarios1_4_reutilizarRotinaComRecalculoDeDatas() {
+        // Dado: rotina original com 2 semanas e 3 sessões planejadas
+        SessaoTreino s1 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 3, 2)) // Segunda
+                .duracao(60)
+                .atividades("Treino de Nado Crawl")
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        SessaoTreino s2 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 3, 4)) // Quarta (+2 dias)
+                .duracao(45)
+                .atividades("Treino de Nado Costas")
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        SessaoTreino s3 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(2)
+                .dataPlanejada(LocalDate.of(2026, 3, 9)) // Segunda seguinte (+7 dias)
+                .duracao(50)
+                .atividades("Treino de Resistência")
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        rotinaTreino.setSessoes(new ArrayList<>(List.of(s1, s2, s3)));
+
+        LocalDate novaDataInicio = LocalDate.of(2026, 11, 2); // Nova data de início (Segunda)
+        ReutilizarRotinaRequestDTO dto = new ReutilizarRotinaRequestDTO(
+                aluno.getId(),
+                novaDataInicio,
+                "Rotina Velocidade Reutilizada",
+                "Foco em velocidade pura"
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(false);
+
+        ArgumentCaptor<RotinaTreino> rotinaCaptor = ArgumentCaptor.forClass(RotinaTreino.class);
+        when(rotinaTreinoRepository.save(rotinaCaptor.capture())).thenAnswer(i -> {
+            RotinaTreino r = i.getArgument(0);
+            r.setId(UUID.randomUUID());
+            return r;
+        });
+
+        // Quando: reutiliza a rotina
+        RotinaTreinoResponseDTO response = rotinaTreinoService.reutilizarRotina(usuarioPersonal, rotinaTreino.getId(), dto);
+
+        // Então: nova rotina criada como ativa com título/objetivos personalizados
+        assertThat(response.ativo()).isTrue();
+        assertThat(response.titulo()).isEqualTo("Rotina Velocidade Reutilizada");
+
+        RotinaTreino novaRotinaSalva = rotinaCaptor.getValue();
+        assertThat(novaRotinaSalva.getAtivo()).isTrue();
+        assertThat(novaRotinaSalva.getAlunos()).containsExactly(aluno);
+        assertThat(novaRotinaSalva.getMetricas()).containsExactlyInAnyOrder(metrica1, metrica2);
+        assertThat(novaRotinaSalva.getSessoes()).hasSize(3);
+
+        // Verifica o recálculo das datas (mantendo intervalos originais)
+        SessaoTreino ns1 = novaRotinaSalva.getSessoes().get(0);
+        SessaoTreino ns2 = novaRotinaSalva.getSessoes().get(1);
+        SessaoTreino ns3 = novaRotinaSalva.getSessoes().get(2);
+
+        assertThat(ns1.getDataPlanejada()).isEqualTo(LocalDate.of(2026, 11, 2));
+        assertThat(ns1.getSemana()).isEqualTo(1);
+        assertThat(ns1.getAtividades()).isEqualTo("Treino de Nado Crawl");
+        assertThat(ns1.getStatus()).isEqualTo(StatusSessaoTreino.PLANEJADA);
+
+        assertThat(ns2.getDataPlanejada()).isEqualTo(LocalDate.of(2026, 11, 4));
+        assertThat(ns2.getSemana()).isEqualTo(1);
+        assertThat(ns2.getStatus()).isEqualTo(StatusSessaoTreino.PLANEJADA);
+
+        assertThat(ns3.getDataPlanejada()).isEqualTo(LocalDate.of(2026, 11, 9));
+        assertThat(ns3.getSemana()).isEqualTo(2);
+        assertThat(ns3.getStatus()).isEqualTo(StatusSessaoTreino.PLANEJADA);
+    }
+
+    @Test
+    @DisplayName("US25 Cenário 2: Atribuir rotina a partir do perfil do aluno")
+    void US25_cenario2_atribuirRotinaPeloPerfilDoAluno() {
+        LocalDate novaDataInicio = LocalDate.of(2026, 12, 1);
+        AtribuirRotinaAlunoRequestDTO dto = new AtribuirRotinaAlunoRequestDTO(
+                rotinaTreino.getId(),
+                novaDataInicio,
+                null,
+                null
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(false);
+        when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(i -> {
+            RotinaTreino r = i.getArgument(0);
+            r.setId(UUID.randomUUID());
+            return r;
+        });
+
+        RotinaTreinoResponseDTO response = rotinaTreinoService.atribuirRotina(usuarioPersonal, aluno.getId(), dto);
+
+        assertThat(response.ativo()).isTrue();
+        assertThat(response.titulo()).isEqualTo(rotinaTreino.getTitulo());
+    }
+
+    @Test
+    @DisplayName("US25 Cenários 3 e 9: Copiar estrutura não copia resultados, datas reais nem histórico de execução")
+    void US25_cenarios3_9_copiarEstruturaNaoCopiaResultadosNemHistorico() {
+        SessaoTreino sessaoExecutadaOrigem = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 3, 2))
+                .dataReal(LocalDate.of(2026, 3, 3))
+                .duracao(55)
+                .atividades("Atividade 1")
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .concluidaAluno(true)
+                .validadaPersonal(true)
+                .desempenho(Desempenho.builder()
+                        .id(UUID.randomUUID())
+                        .dataRegistro(java.time.OffsetDateTime.now())
+                        .nivelCansaco(4)
+                        .registradoPor("ALUNO")
+                        .build())
+                .build();
+
+        rotinaTreino.setSessoes(new ArrayList<>(List.of(sessaoExecutadaOrigem)));
+
+        ReutilizarRotinaRequestDTO dto = new ReutilizarRotinaRequestDTO(
+                aluno.getId(),
+                LocalDate.of(2026, 11, 2),
+                null,
+                null
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(false);
+
+        ArgumentCaptor<RotinaTreino> rotinaCaptor = ArgumentCaptor.forClass(RotinaTreino.class);
+        when(rotinaTreinoRepository.save(rotinaCaptor.capture())).thenAnswer(i -> {
+            RotinaTreino r = i.getArgument(0);
+            r.setId(UUID.randomUUID());
+            return r;
+        });
+
+        rotinaTreinoService.reutilizarRotina(usuarioPersonal, rotinaTreino.getId(), dto);
+
+        RotinaTreino salva = rotinaCaptor.getValue();
+        assertThat(salva.getSessoes()).hasSize(1);
+        SessaoTreino novaSessao = salva.getSessoes().get(0);
+
+        assertThat(novaSessao.getStatus()).isEqualTo(StatusSessaoTreino.PLANEJADA);
+        assertThat(novaSessao.getDataReal()).isNull();
+        assertThat(novaSessao.getDesempenho()).isNull();
+        assertThat(novaSessao.getConcluidaAluno()).isFalse();
+        assertThat(novaSessao.getValidadaPersonal()).isFalse();
+    }
+
+    @Test
+    @DisplayName("US25 Cenário 6: Bloquear reutilização se o aluno já possui rotina de treino ativa")
+    void US25_cenario6_bloquearReutilizacaoSeAlunoJaPossuiRotinaAtiva() {
+        ReutilizarRotinaRequestDTO dto = new ReutilizarRotinaRequestDTO(
+                aluno.getId(),
+                LocalDate.of(2026, 11, 2),
+                null,
+                null
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(true);
+
+        assertThatThrownBy(() -> rotinaTreinoService.reutilizarRotina(usuarioPersonal, rotinaTreino.getId(), dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("O aluno " + aluno.getUsuario().getNome() + " já possui uma rotina de treino ativa. A rotina atual precisa ser encerrada antes.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    @Test
+    @DisplayName("US25 / RN-014: Bloquear reutilização de rotina para aluno inativo")
+    void US25_RN014_bloquearReutilizacaoAlunoInativo() {
+        Aluno alunoInativo = Aluno.builder()
+                .id(UUID.randomUUID())
+                .usuario(Usuario.builder().nome("Aluno Inativo").build())
+                .personal(personalTrainer)
+                .status(com.gymnasion.tcc.domain.enums.StatusConvite.INATIVO)
+                .build();
+
+        ReutilizarRotinaRequestDTO dto = new ReutilizarRotinaRequestDTO(
+                alunoInativo.getId(),
+                LocalDate.of(2026, 11, 2),
+                null,
+                null
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(alunoRepository.findByIdAndPersonalId(alunoInativo.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(alunoInativo));
+
+        assertThatThrownBy(() -> rotinaTreinoService.reutilizarRotina(usuarioPersonal, rotinaTreino.getId(), dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Erro. Este aluno está inativo.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    @Test
+    @DisplayName("US25 Cenário 8: Encerrar rotina com pendências do personal é permitido e preserva sessões concluídas")
+    void US25_cenario8_encerrarComPendenciasPermitido() {
+        // Dado: sessão concluída com pendências e sessão planejada
+        SessaoTreino sessaoConcluidaComPendencia = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .dataReal(LocalDate.of(2026, 10, 1))
+                .build();
+
+        SessaoTreino sessaoPlanejada = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(2)
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        rotinaTreino.setSessoes(new ArrayList<>(List.of(sessaoConcluidaComPendencia, sessaoPlanejada)));
+        rotinaTreino.setAtivo(true);
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Quando: personal encerra a rotina
+        RotinaTreinoResponseDTO response = rotinaTreinoService.encerrarRotina(usuarioPersonal, rotinaTreino.getId());
+
+        // Então: encerramento é permitido, status fica inativo, sessão concluída é preservada
+        assertThat(response.ativo()).isFalse();
+        assertThat(rotinaTreino.getSessoes()).containsExactly(sessaoConcluidaComPendencia);
+    }
+
+    @Test
+    @DisplayName("US25: Tentar encerrar rotina que já está encerrada deve lançar erro")
+    void US25_encerrarRotinaJaEncerradaBloqueado() {
+        rotinaTreino.setAtivo(false);
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+
+        assertThatThrownBy(() -> rotinaTreinoService.encerrarRotina(usuarioPersonal, rotinaTreino.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Esta rotina de treino já está encerrada.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
     }
 }
 
