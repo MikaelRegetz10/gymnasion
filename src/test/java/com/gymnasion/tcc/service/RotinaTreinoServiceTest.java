@@ -7,6 +7,7 @@ import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.dto.*;
 import com.gymnasion.tcc.exceptions.BusinessException;
+import com.gymnasion.tcc.exceptions.MetricasInvalidasException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -743,6 +744,413 @@ class RotinaTreinoServiceTest {
         assertThat(response.ativo()).isFalse();
         assertThat(rotinaTreino.getSessoes()).hasSize(1);
         assertThat(rotinaTreino.getSessoes().get(0).getStatus()).isEqualTo(StatusSessaoTreino.CONCLUIDA);
+    }
+
+    @Test
+    @DisplayName("US22 Cenário 8: Aluno não pode registrar novamente uma sessão já confirmada")
+    void US22_cenario8_bloquearReexecucaoPeloAluno() {
+        // Dado: sessão cuja execução já foi confirmada pelo aluno
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessaoConfirmada = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .dataReal(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .concluidaAluno(true)
+                .build();
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, aluno.getId())).thenReturn(Optional.of(sessaoConfirmada));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 21),
+                45,
+                6,
+                null,
+                List.of(new RegistrarResultadoMetricaDTO(metrica1.getId(), "00:31"))
+        );
+
+        // Quando & Então: nova tentativa de registro é bloqueada e os dados originais são preservados
+        assertThatThrownBy(() -> rotinaTreinoService.registrarExecucao(usuarioAluno, sessaoId, dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("já foi confirmada e não pode ser alterada");
+
+        assertThat(sessaoConfirmada.getDataReal()).isEqualTo(LocalDate.of(2026, 10, 20));
+        verify(metricaRepository, never()).findById(any());
+        verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
+    }
+
+    @Test
+    @DisplayName("US22 Cenário 8: Personal continua podendo registrar a execução de sessão concluída")
+    void US22_cenario8_travaNaoSeAplicaAoPersonal() {
+        // Dado: sessão já concluída pelo aluno
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessaoConfirmada = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .concluidaAluno(true)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessaoConfirmada));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(metricaRepository.findById(metrica2.getId())).thenReturn(Optional.of(metrica2));
+        when(sessaoTreinoRepository.save(any(SessaoTreino.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                null,
+                null,
+                aluno.getId(),
+                List.of(new RegistrarResultadoMetricaDTO(metrica2.getId(), "42"))
+        );
+
+        // Quando
+        SessaoTreinoResponseDTO response = rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto);
+
+        // Então: o registro do personal é aceito
+        assertThat(response.status()).isEqualTo(StatusSessaoTreino.CONCLUIDA);
+        assertThat(response.desempenho().metricas()).hasSize(1);
+        assertThat(response.desempenho().metricas().get(0).valor()).isEqualTo("42");
+    }
+
+    @Test
+    @DisplayName("US22 Cenário 9: Aceita valores válidos para todos os tipos de métrica")
+    void US22_cenario9_aceitaValoresValidosPorTipo() {
+        // Dado: rotina com uma métrica de cada tipo
+        Metrica fc = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("FC Média")
+                .tipo(TipoMetrica.FREQUENCIA_CARDIACA)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .build();
+        Metrica observacao = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Observação")
+                .tipo(TipoMetrica.TEXTO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .build();
+        rotinaTreino.getMetricas().addAll(Set.of(fc, observacao));
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, aluno.getId())).thenReturn(Optional.of(sessao));
+        when(metricaRepository.findById(metrica1.getId())).thenReturn(Optional.of(metrica1));
+        when(metricaRepository.findById(metrica2.getId())).thenReturn(Optional.of(metrica2));
+        when(metricaRepository.findById(fc.getId())).thenReturn(Optional.of(fc));
+        when(metricaRepository.findById(observacao.getId())).thenReturn(Optional.of(observacao));
+        when(sessaoTreinoRepository.save(any(SessaoTreino.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                60,
+                7,
+                null,
+                List.of(
+                        new RegistrarResultadoMetricaDTO(metrica1.getId(), " 01:15 "),
+                        new RegistrarResultadoMetricaDTO(metrica2.getId(), "32,5"),
+                        new RegistrarResultadoMetricaDTO(fc.getId(), "145"),
+                        new RegistrarResultadoMetricaDTO(observacao.getId(), "Senti cansaço no final")
+                )
+        );
+
+        // Quando
+        SessaoTreinoResponseDTO response = rotinaTreinoService.registrarExecucao(usuarioAluno, sessaoId, dto);
+
+        // Então: todos os valores são aceitos e armazenados
+        assertThat(response.status()).isEqualTo(StatusSessaoTreino.CONCLUIDA);
+        assertThat(response.desempenho().metricas())
+                .extracting(RegistroMetricaResponseDTO::valor)
+                .containsExactlyInAnyOrder("01:15", "32,5", "145", "Senti cansaço no final");
+    }
+
+    @Test
+    @DisplayName("US22 Cenários 9 e 10: Valores inválidos impedem a confirmação e identificam os campos")
+    void US22_cenario9_e_10_valoresInvalidosIdentificamCampos() {
+        // Dado: rotina com métricas de tempo, numérica e frequência cardíaca
+        Metrica fc = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("FC Máxima")
+                .tipo(TipoMetrica.FREQUENCIA_CARDIACA)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .build();
+        rotinaTreino.getMetricas().add(fc);
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, aluno.getId())).thenReturn(Optional.of(sessao));
+        when(metricaRepository.findById(metrica1.getId())).thenReturn(Optional.of(metrica1));
+        when(metricaRepository.findById(metrica2.getId())).thenReturn(Optional.of(metrica2));
+        when(metricaRepository.findById(fc.getId())).thenReturn(Optional.of(fc));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                60,
+                7,
+                null,
+                List.of(
+                        new RegistrarResultadoMetricaDTO(metrica1.getId(), "1:75"),
+                        new RegistrarResultadoMetricaDTO(metrica2.getId(), "trinta"),
+                        new RegistrarResultadoMetricaDTO(fc.getId(), "400")
+                )
+        );
+
+        // Quando & Então: a confirmação é impedida e todos os campos inválidos são identificados
+        assertThatThrownBy(() -> rotinaTreinoService.registrarExecucao(usuarioAluno, sessaoId, dto))
+                .isInstanceOf(MetricasInvalidasException.class)
+                .satisfies(ex -> {
+                    Map<String, String> campos = ((MetricasInvalidasException) ex).getCamposInvalidos();
+                    assertThat(campos).containsOnlyKeys(
+                            metrica1.getId().toString(),
+                            metrica2.getId().toString(),
+                            fc.getId().toString()
+                    );
+                    assertThat(campos.get(metrica1.getId().toString())).contains("formato mm:ss");
+                    assertThat(campos.get(metrica2.getId().toString())).contains("deve ser numérico");
+                    assertThat(campos.get(fc.getId().toString())).contains("bpm");
+                });
+
+        verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
+    }
+
+    @Test
+    @DisplayName("US22 Cenário 1: Aluno acessa o registro com as métricas configuradas pelo personal")
+    void US22_cenario1_acessarFormularioComMetricasConfiguradas() {
+        // Dado: rotina com métricas ativas (inclusive exclusiva do personal) e uma métrica descontinuada
+        Metrica exclusivaPersonal = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Análise Técnica")
+                .tipo(TipoMetrica.TEXTO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .obrigatoria(true)
+                .quemPreenche(ResponsavelPreenchimento.PERSONAL)
+                .build();
+        Metrica descontinuada = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Métrica Antiga")
+                .tipo(TipoMetrica.NUMERICO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .ativo(false)
+                .build();
+        rotinaTreino.getMetricas().addAll(Set.of(exclusivaPersonal, descontinuada));
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, aluno.getId())).thenReturn(Optional.of(sessao));
+
+        // Quando
+        FormularioExecucaoResponseDTO formulario = rotinaTreinoService.obterFormularioExecucao(usuarioAluno, sessaoId);
+
+        // Então: a sessão está disponível para registro e as métricas ativas são apresentadas com sua configuração
+        assertThat(formulario.registroPermitido()).isTrue();
+        assertThat(formulario.sessao().id()).isEqualTo(sessaoId);
+        assertThat(formulario.metricas())
+                .extracting(RotinaTreinoResponseDTO.MetricaResumoDTO::titulo)
+                .containsExactly("Análise Técnica", "Braçadas", "Tempo 50m");
+        assertThat(formulario.metricas().get(0).quemPreenche()).isEqualTo(ResponsavelPreenchimento.PERSONAL);
+        assertThat(formulario.metricas().get(0).obrigatoria()).isTrue();
+    }
+
+    @Test
+    @DisplayName("US22 Cenário 1 e 8: Sessão já confirmada é exibida sem permitir novo registro")
+    void US22_cenario1_e_8_formularioDeSessaoConfirmadaNaoPermiteRegistro() {
+        // Dado: sessão já confirmada pelo aluno
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessaoConfirmada = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .dataReal(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .concluidaAluno(true)
+                .build();
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, aluno.getId())).thenReturn(Optional.of(sessaoConfirmada));
+
+        // Quando
+        FormularioExecucaoResponseDTO formulario = rotinaTreinoService.obterFormularioExecucao(usuarioAluno, sessaoId);
+
+        // Então: os dados são exibidos apenas para consulta
+        assertThat(formulario.registroPermitido()).isFalse();
+        assertThat(formulario.sessao().status()).isEqualTo(StatusSessaoTreino.CONCLUIDA);
+    }
+
+    @Test
+    @DisplayName("US22 Cenário 3: Impede a confirmação sem as métricas obrigatórias do aluno e informa quais faltam")
+    void US22_cenario3_bloquearConfirmacaoSemMetricasObrigatorias() {
+        // Dado: rotina com métricas obrigatórias do aluno (ALUNO e AMBOS)
+        metrica1.setObrigatoria(true);
+        Metrica obrigatoriaAluno = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Percepção do Treino")
+                .tipo(TipoMetrica.TEXTO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .obrigatoria(true)
+                .quemPreenche(ResponsavelPreenchimento.ALUNO)
+                .build();
+        rotinaTreino.getMetricas().add(obrigatoriaAluno);
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, aluno.getId())).thenReturn(Optional.of(sessao));
+        when(metricaRepository.findById(metrica2.getId())).thenReturn(Optional.of(metrica2));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                60,
+                7,
+                null,
+                List.of(new RegistrarResultadoMetricaDTO(metrica2.getId(), "30"))
+        );
+
+        // Quando & Então: a confirmação é impedida e os campos obrigatórios faltantes são informados
+        assertThatThrownBy(() -> rotinaTreinoService.registrarExecucao(usuarioAluno, sessaoId, dto))
+                .isInstanceOf(MetricasInvalidasException.class)
+                .satisfies(ex -> {
+                    Map<String, String> campos = ((MetricasInvalidasException) ex).getCamposInvalidos();
+                    assertThat(campos).containsOnlyKeys(metrica1.getId().toString(), obrigatoriaAluno.getId().toString());
+                    assertThat(campos.get(metrica1.getId().toString())).contains("'Tempo 50m' é obrigatória");
+                    assertThat(campos.get(obrigatoriaAluno.getId().toString())).contains("'Percepção do Treino' é obrigatória");
+                });
+
+        verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
+    }
+
+    @Test
+    @DisplayName("US22 Cenários 4 e 5: Confirma sem métricas opcionais e mantém as exclusivas do personal pendentes")
+    void US22_cenario4_e_5_confirmarSemOpcionaisESemExclusivasDoPersonal() {
+        // Dado: rotina com métricas opcionais e uma obrigatória exclusiva do personal; uma obrigatória descontinuada
+        Metrica obrigatoriaPersonal = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Análise Técnica")
+                .tipo(TipoMetrica.TEXTO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .obrigatoria(true)
+                .quemPreenche(ResponsavelPreenchimento.PERSONAL)
+                .build();
+        Metrica obrigatoriaDescontinuada = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Métrica Antiga")
+                .tipo(TipoMetrica.NUMERICO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .obrigatoria(true)
+                .ativo(false)
+                .build();
+        rotinaTreino.getMetricas().addAll(Set.of(obrigatoriaPersonal, obrigatoriaDescontinuada));
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, aluno.getId())).thenReturn(Optional.of(sessao));
+        when(sessaoTreinoRepository.save(any(SessaoTreino.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Quando: aluno confirma sem preencher nenhuma métrica (lista ausente)
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                60,
+                6,
+                null,
+                null
+        );
+        SessaoTreinoResponseDTO response = rotinaTreinoService.registrarExecucao(usuarioAluno, sessaoId, dto);
+
+        // Então: a sessão é concluída sem atribuir valores inexistentes
+        assertThat(response.status()).isEqualTo(StatusSessaoTreino.CONCLUIDA);
+        assertThat(response.concluidaAluno()).isTrue();
+        assertThat(response.desempenho()).isNotNull();
+        assertThat(response.desempenho().metricas()).isEmpty();
+        verify(metricaRepository, never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("US10: Personal continua obrigado a informar ao menos um resultado de métrica")
+    void US10_personalDeveInformarAoMenosUmResultado() {
+        // Dado: sessão da rotina do personal
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessao));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                60,
+                null,
+                aluno.getId(),
+                List.of()
+        );
+
+        // Quando & Então
+        assertThatThrownBy(() -> rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("É necessário informar pelo menos um resultado de métrica.");
+
+        verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
     }
 }
 

@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,8 +26,7 @@ public record RegistrarExecucaoSessaoRequestDTO(
         @Schema(description = "ID do aluno que executou a sessão (obrigatório se o personal trainer estiver registrando)", example = "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d")
         UUID alunoId,
 
-        @NotEmpty(message = "É necessário informar pelo menos um resultado de métrica.")
         @Valid
-        @Schema(description = "Lista com os resultados das métricas registradas na sessão")
+        @Schema(description = "Lista com os resultados das métricas registradas na sessão. Métricas opcionais não preenchidas devem ser omitidas; para o personal trainer é obrigatório informar ao menos um resultado")
         List<RegistrarResultadoMetricaDTO> resultados
 ) {}

@@ -7,19 +7,30 @@ import com.gymnasion.tcc.domain.enums.StatusConvite;
 import com.gymnasion.tcc.domain.enums.StatusSessaoTreino;
 import com.gymnasion.tcc.dto.*;
 import com.gymnasion.tcc.exceptions.BusinessException;
+import com.gymnasion.tcc.exceptions.MetricasInvalidasException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.repository.*;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
 public class RotinaTreinoService {
+
+    // US-18 notas técnicas: "Tempo" valida formato mm:ss (segundos de 00 a 59)
+    private static final Pattern FORMATO_TEMPO = Pattern.compile("^\\d{2,}:[0-5]\\d$");
+    // US-18 notas técnicas: "Frequência cardíaca" valida faixa numérica plausível (em bpm)
+    private static final int FREQUENCIA_CARDIACA_MINIMA = 30;
+    private static final int FREQUENCIA_CARDIACA_MAXIMA = 250;
+    // Limite da coluna registro_metrica.valor
+    private static final int TAMANHO_MAXIMO_VALOR_METRICA = 255;
 
     private final RotinaTreinoRepository rotinaTreinoRepository;
     private final ModalidadeRepository modalidadeRepository;
@@ -335,11 +346,40 @@ public class RotinaTreinoService {
         return toSessaoResponseDTO(sessao);
     }
 
+    @Transactional(readOnly = true)
+    public FormularioExecucaoResponseDTO obterFormularioExecucao(Usuario usuario, UUID sessaoId) {
+        Aluno aluno = alunoRepository.findByUsuario(usuario)
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+        SessaoTreino sessao = sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, aluno.getId())
+                .orElseThrow(() -> new NotFoundException("Sessão de treino não encontrada para este aluno."));
+
+        // US-22 Cenário 1: Disponibiliza as métricas configuradas pelo personal (descontinuadas não aparecem - US-19 C3)
+        List<RotinaTreinoResponseDTO.MetricaResumoDTO> metricasDTO = sessao.getRotinaTreino().getMetricas().stream()
+                .filter(metrica -> Boolean.TRUE.equals(metrica.getAtivo()))
+                .sorted(Comparator.comparing(Metrica::getTitulo))
+                .map(metrica -> new RotinaTreinoResponseDTO.MetricaResumoDTO(
+                        metrica.getId(),
+                        metrica.getTitulo(),
+                        metrica.getTipo(),
+                        metrica.getObrigatoria(),
+                        metrica.getQuemPreenche()
+                ))
+                .toList();
+
+        // US-22 Cenário 8: Sessão já confirmada é exibida apenas para consulta
+        return new FormularioExecucaoResponseDTO(
+                toSessaoResponseDTO(sessao),
+                !execucaoConfirmada(sessao),
+                metricasDTO
+        );
+    }
+
     @Transactional
     public SessaoTreinoResponseDTO registrarExecucao(Usuario usuario, UUID sessaoId, RegistrarExecucaoSessaoRequestDTO dto) {
         SessaoTreino sessao;
         Aluno alunoResponsavel;
         String registradoPor;
+        List<RegistrarResultadoMetricaDTO> resultados = dto.resultados() != null ? dto.resultados() : List.of();
 
         if (usuario.getRole() == Role.PERSONAL_TRAINER) {
             PersonalTrainer personal = obterPersonalLogado(usuario);
@@ -354,12 +394,22 @@ public class RotinaTreinoService {
             } else {
                 throw new BusinessException("Nenhum aluno informado ou vinculado à rotina.");
             }
+
+            // US-10: O registro feito pelo personal exige ao menos um resultado de métrica
+            if (resultados.isEmpty()) {
+                throw new BusinessException("É necessário informar pelo menos um resultado de métrica.");
+            }
             registradoPor = "PERSONAL_TRAINER";
         } else {
             alunoResponsavel = alunoRepository.findByUsuario(usuario)
                     .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
             sessao = sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, alunoResponsavel.getId())
                     .orElseThrow(() -> new NotFoundException("Sessão de treino não encontrada para este aluno."));
+
+            // US-22 Cenário 8: Após a confirmação, o registro não pode ser alterado pelo aluno (correções via US-23)
+            if (execucaoConfirmada(sessao)) {
+                throw new BusinessException("A execução desta sessão já foi confirmada e não pode ser alterada. Eventuais correções devem ser realizadas pelo personal trainer.");
+            }
             sessao.setConcluidaAluno(true);
             registradoPor = "ALUNO";
         }
@@ -395,7 +445,8 @@ public class RotinaTreinoService {
         boolean isPersonal = usuario.getRole() == Role.PERSONAL_TRAINER;
 
         Set<Metrica> metricasDaRotina = sessao.getRotinaTreino().getMetricas();
-        for (RegistrarResultadoMetricaDTO resDto : dto.resultados()) {
+        Map<String, String> camposInvalidos = new LinkedHashMap<>();
+        for (RegistrarResultadoMetricaDTO resDto : resultados) {
             Metrica metrica = metricaRepository.findById(resDto.metricaId())
                     .orElseThrow(() -> new NotFoundException("Métrica com ID " + resDto.metricaId() + " não encontrada."));
 
@@ -413,16 +464,46 @@ public class RotinaTreinoService {
                 throw new BusinessException("A métrica '" + metrica.getTitulo() + "' é de preenchimento exclusivo do personal trainer.");
             }
 
+            // US-22 Cenário 9 / US-18 (RN-015): Valida o valor de acordo com o tipo da métrica
+            String valor = resDto.valor().trim();
+            String erroTipo = validarValorPorTipo(metrica, valor);
+            if (erroTipo != null) {
+                camposInvalidos.put(metrica.getId().toString(), erroTipo);
+                continue;
+            }
+
             // Atualiza métrica existente ou adiciona nova (preserva métricas preenchidas por outros papéis)
             desempenho.getRegistrosMetricas().removeIf(rmExistente -> rmExistente.getMetrica().getId().equals(metrica.getId()));
 
             RegistroMetrica rm = RegistroMetrica.builder()
                     .desempenho(desempenho)
                     .metrica(metrica)
-                    .valor(resDto.valor().trim())
+                    .valor(valor)
                     .build();
 
             desempenho.getRegistrosMetricas().add(rm);
+        }
+
+        // US-22 Cenários 3 e 4: Métricas obrigatórias do aluno devem ser preenchidas; opcionais e exclusivas do personal não bloqueiam
+        if (!isPersonal) {
+            Set<UUID> metricasInformadas = resultados.stream()
+                    .map(RegistrarResultadoMetricaDTO::metricaId)
+                    .collect(Collectors.toSet());
+            metricasDaRotina.stream()
+                    .filter(metrica -> Boolean.TRUE.equals(metrica.getAtivo()))
+                    .filter(metrica -> Boolean.TRUE.equals(metrica.getObrigatoria()))
+                    .filter(metrica -> metrica.getQuemPreenche() != ResponsavelPreenchimento.PERSONAL)
+                    .filter(metrica -> !metricasInformadas.contains(metrica.getId()))
+                    .sorted(Comparator.comparing(Metrica::getTitulo))
+                    .forEach(metrica -> camposInvalidos.put(
+                            metrica.getId().toString(),
+                            "A métrica '" + metrica.getTitulo() + "' é obrigatória e deve ser preenchida."
+                    ));
+        }
+
+        // US-22 Cenário 10: Impede a confirmação e identifica todos os campos que precisam ser corrigidos
+        if (!camposInvalidos.isEmpty()) {
+            throw new MetricasInvalidasException(camposInvalidos);
         }
 
         sessao = sessaoTreinoRepository.save(sessao);
@@ -524,6 +605,46 @@ public class RotinaTreinoService {
                 sessao.getValidadaPersonal(),
                 desempenhoDTO
         );
+    }
+
+    private boolean execucaoConfirmada(SessaoTreino sessao) {
+        return Boolean.TRUE.equals(sessao.getConcluidaAluno()) || sessao.getStatus() == StatusSessaoTreino.CONCLUIDA;
+    }
+
+    /**
+     * Valida o valor informado conforme o tipo da métrica (RN-015 / US-18 notas técnicas).
+     * Retorna a mensagem de erro, ou null quando o valor é válido.
+     */
+    private String validarValorPorTipo(Metrica metrica, String valor) {
+        String titulo = metrica.getTitulo();
+        if (valor.length() > TAMANHO_MAXIMO_VALOR_METRICA) {
+            return "O valor da métrica '" + titulo + "' deve ter no máximo " + TAMANHO_MAXIMO_VALOR_METRICA + " caracteres.";
+        }
+
+        return switch (metrica.getTipo()) {
+            case NUMERICO -> {
+                try {
+                    new BigDecimal(valor.replace(',', '.'));
+                    yield null;
+                } catch (NumberFormatException e) {
+                    yield "O valor da métrica '" + titulo + "' deve ser numérico.";
+                }
+            }
+            case TEMPO -> FORMATO_TEMPO.matcher(valor).matches()
+                    ? null
+                    : "O valor da métrica '" + titulo + "' deve estar no formato mm:ss.";
+            case FREQUENCIA_CARDIACA -> {
+                try {
+                    int bpm = Integer.parseInt(valor);
+                    yield bpm >= FREQUENCIA_CARDIACA_MINIMA && bpm <= FREQUENCIA_CARDIACA_MAXIMA
+                            ? null
+                            : "O valor da métrica '" + titulo + "' deve estar entre " + FREQUENCIA_CARDIACA_MINIMA + " e " + FREQUENCIA_CARDIACA_MAXIMA + " bpm.";
+                } catch (NumberFormatException e) {
+                    yield "O valor da métrica '" + titulo + "' deve ser um número inteiro de batimentos por minuto (bpm).";
+                }
+            }
+            case TEXTO -> null;
+        };
     }
 
     private PersonalTrainer obterPersonalLogado(Usuario usuario) {
