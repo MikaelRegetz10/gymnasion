@@ -49,6 +49,8 @@ public class MetricaService {
         Metrica metrica = Metrica.builder()
                 .titulo(dto.titulo().trim())
                 .tipo(dto.tipo())
+                .obrigatoria(dto.obrigatoria())
+                .quemPreenche(dto.quemPreenche())
                 .modalidade(modalidade)
                 .personalTrainer(personal)
                 .ativo(true)
@@ -86,6 +88,14 @@ public class MetricaService {
                 throw new BusinessException("Não é possível alterar o tipo de uma métrica com histórico de registros. Crie uma nova métrica.");
             }
             metrica.setTipo(dto.tipo());
+        }
+
+        if (dto.obrigatoria() != null) {
+            metrica.setObrigatoria(dto.obrigatoria());
+        }
+
+        if (dto.quemPreenche() != null) {
+            metrica.setQuemPreenche(dto.quemPreenche());
         }
 
         if (!metrica.getTitulo().equalsIgnoreCase(dto.titulo().trim())) {
@@ -136,6 +146,8 @@ public class MetricaService {
                 metrica.getTipo(),
                 metrica.getModalidade().getId(),
                 metrica.getModalidade().getNome(),
+                metrica.getObrigatoria(),
+                metrica.getQuemPreenche(),
                 metrica.getAtivo(),
                 qtdAlunos
         );

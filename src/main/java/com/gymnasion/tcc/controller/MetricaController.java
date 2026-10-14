@@ -32,9 +32,10 @@ public class MetricaController {
     private final MetricaService metricaService;
 
     @PostMapping
-    @Operation(summary = "Criar nova métrica personalizada (US-18)", description = "Cria um novo campo de métrica vinculado a uma modalidade e ao Personal Trainer.")
-    @ApiResponse(responseCode = "201", description = "Métrica criada com sucesso.")
-    @ApiResponse(responseCode = "409", description = "Já existe uma métrica com este nome na modalidade selecionada (RN-016).")
+    @Operation(summary = "Criar nova métrica personalizada (US-18)", description = "Cria um novo campo de métrica vinculado a uma modalidade e ao Personal Trainer, definindo título, tipo (RN-015), obrigatoriedade e responsáveis pelo preenchimento (aluno, personal ou ambos).")
+    @ApiResponse(responseCode = "201", description = "Métrica criada com sucesso!")
+    @ApiResponse(responseCode = "400", description = "Campos obrigatórios ausentes ou inválidos.")
+    @ApiResponse(responseCode = "409", description = "Já existe uma métrica com esse nome nessa modalidade. (RN-016)")
     public ResponseEntity<MetricaResponseDTO> criarMetrica(
             @AuthenticationPrincipal Usuario usuario,
             @Valid @RequestBody CriarMetricaRequestDTO dto) {
@@ -43,7 +44,7 @@ public class MetricaController {
     }
 
     @GetMapping
-    @Operation(summary = "Listar métricas por modalidade (US-18)", description = "Retorna todas as métricas criadas para a modalidade especificada.")
+    @Operation(summary = "Listar métricas por modalidade (US-18)", description = "Retorna todas as métricas criadas para a modalidade com título, tipo, obrigatoriedade, responsáveis e contagem de alunos com registros.")
     public ResponseEntity<List<MetricaResponseDTO>> listarPorModalidade(
             @AuthenticationPrincipal Usuario usuario,
             @RequestParam("modalidadeId") Long modalidadeId) {

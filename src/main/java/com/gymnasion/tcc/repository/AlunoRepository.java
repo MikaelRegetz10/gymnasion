@@ -31,4 +31,8 @@ public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
     List<Aluno> findByPersonalId(@Param("personalId") UUID personalId);
 
     Optional<Aluno> findByIdAndPersonalId(UUID id, UUID personalId);
+
+    Optional<Aluno> findByUsuario(com.gymnasion.tcc.domain.Usuario usuario);
+
+    Optional<Aluno> findByUsuarioId(UUID usuarioId);
 }

@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.dto;
 
+import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -14,5 +15,11 @@ public record CriarMetricaRequestDTO(
         String titulo,
 
         @NotNull(message = "O tipo de métrica é obrigatório.")
-        TipoMetrica tipo
+        TipoMetrica tipo,
+
+        @NotNull(message = "A indicação de obrigatoriedade é obrigatória.")
+        Boolean obrigatoria,
+
+        @NotNull(message = "O responsável pelo preenchimento é obrigatório.")
+        ResponsavelPreenchimento quemPreenche
 ) {}

@@ -13,8 +13,11 @@ public interface RegistroMetricaRepository extends JpaRepository<RegistroMetrica
 
     boolean existsByMetricaId(UUID metricaId);
 
-    @Query("SELECT COUNT(DISTINCT d.id) FROM RegistroMetrica rm " +
+    @Query("SELECT COUNT(DISTINCT a.id) FROM RegistroMetrica rm " +
             "JOIN rm.desempenho d " +
+            "JOIN d.sessaoTreino s " +
+            "JOIN s.rotinaTreino r " +
+            "JOIN r.alunos a " +
             "WHERE rm.metrica.id = :metricaId")
     Long countAlunosComRegistrosByMetricaId(@Param("metricaId") UUID metricaId);
 }

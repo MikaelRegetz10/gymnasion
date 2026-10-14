@@ -54,4 +54,8 @@ public class RotinaTreino {
     )
     @Builder.Default
     private Set<Metrica> metricas = new HashSet<>();
+
+    @OneToMany(mappedBy = "rotinaTreino", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private java.util.List<SessaoTreino> sessoes = new java.util.ArrayList<>();
 }

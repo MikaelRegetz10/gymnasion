@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.domain;
 
+import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,6 +32,15 @@ public class Metrica {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private TipoMetrica tipo;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean obrigatoria = false;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "quem_preenche", nullable = false, length = 30)
+    private ResponsavelPreenchimento quemPreenche = ResponsavelPreenchimento.AMBOS;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "modalidade_id", nullable = false)

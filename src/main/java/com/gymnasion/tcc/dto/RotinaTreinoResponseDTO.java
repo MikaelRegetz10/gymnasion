@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.dto;
 
+import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 
 import java.util.List;
@@ -23,6 +24,8 @@ public record RotinaTreinoResponseDTO(
     public record MetricaResumoDTO(
             UUID id,
             String titulo,
-            TipoMetrica tipo
+            TipoMetrica tipo,
+            Boolean obrigatoria,
+            ResponsavelPreenchimento quemPreenche
     ) {}
 }
