@@ -67,8 +67,41 @@ public class RotinaTreinoController {
     public ResponseEntity<MensagemResponseDTO> excluirRotina(
             @AuthenticationPrincipal Usuario usuario,
             @PathVariable("id") UUID id) {
-        return ResponseEntity.ok(rotinaTreinoService.excluirRotina(usuario, id));
+        rotinaTreinoService.excluirRotina(usuario, id);
+        return ResponseEntity.ok(new MensagemResponseDTO("Rotina excluída com sucesso!"));
     }
+
+    @PostMapping("/{id}/alunos")
+    @Operation(summary = "Vincular alunos à rotina de treino (US-11)", description = "Vincula um ou mais alunos válidos a uma rotina de treino existente (C1). Bloqueia alunos já vinculados (C2) e aplica a trava de no máximo 1 rotina ativa por aluno.")
+    @ApiResponse(responseCode = "200", description = "Treino vinculado com sucesso.")
+    @ApiResponse(responseCode = "400", description = "Aluno já vinculado, aluno inativo ou aluno já possui outra rotina ativa.")
+    @ApiResponse(responseCode = "422", description = "Nenhum aluno informado (C3).")
+    public ResponseEntity<RotinaTreinoResponseDTO> vincularAlunos(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("id") UUID rotinaId,
+            @Valid @RequestBody VincularAlunosRotinaRequestDTO dto) {
+        return ResponseEntity.ok(rotinaTreinoService.vincularAlunos(usuario, rotinaId, dto));
+    }
+
+    @DeleteMapping("/{id}/alunos/{alunoId}")
+    @Operation(summary = "Desvincular aluno da rotina de treino", description = "Remove o vínculo de um aluno com a rotina de treino. Exige ao menos um aluno restante na rotina (RN-012).")
+    @ApiResponse(responseCode = "200", description = "Aluno desvinculado com sucesso.")
+    public ResponseEntity<RotinaTreinoResponseDTO> desvincularAluno(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("id") UUID rotinaId,
+            @PathVariable("alunoId") UUID alunoId) {
+        return ResponseEntity.ok(rotinaTreinoService.desvincularAluno(usuario, rotinaId, alunoId));
+    }
+
+    @PatchMapping("/{id}/encerrar")
+    @Operation(summary = "Encerrar rotina de treino (US-25 C6/C7)", description = "Encerra a rotina de treino ativa, liberando o aluno para receber uma nova rotina e removendo sessões futuras não realizadas.")
+    @ApiResponse(responseCode = "200", description = "Rotina encerrada com sucesso.")
+    public ResponseEntity<RotinaTreinoResponseDTO> encerrarRotina(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("id") UUID rotinaId) {
+        return ResponseEntity.ok(rotinaTreinoService.encerrarRotina(usuario, rotinaId));
+    }
+
 
     @PostMapping("/{id}/sessoes")
     @Operation(summary = "Adicionar sessão ao planejamento da rotina (US-10 C1)", description = "Adiciona uma sessão de treino organizada por semana na rotina.")

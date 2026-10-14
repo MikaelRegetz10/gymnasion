@@ -13,6 +13,7 @@ public record RotinaTreinoResponseDTO(
         String nomeModalidade,
         Integer frequenciaSemanal,
         String objetivos,
+        Boolean ativo,
         List<AlunoResumoDTO> alunos,
         List<MetricaResumoDTO> metricas
 ) {

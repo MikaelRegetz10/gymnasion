@@ -38,6 +38,7 @@ public class PersonalConviteService {
     private final PersonalConvitesRepository personalConviteRepository;
     private final PasswordEncoder passwordEncoder;
     private final ModalidadeRepository modalidadeRepository;
+    private final NotificacaoService notificacaoService;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -118,6 +119,14 @@ public class PersonalConviteService {
         aluno = alunoRepository.save(aluno);
 
         personalConviteRepository.incrementarQuantidadeUsuarios(convite.getId());
+
+        // Notificação in-app ao personal: "{nome} usou seu link de convite."
+        notificacaoService.notificarNovaSolicitacao(personal, aluno);
+
+        // Notificação in-app ao personal quando o link atinge o limite de utilizações
+        if (convite.getQuantidadesUsuarios() + 1 >= convite.getMaximoUsuarios()) {
+            notificacaoService.notificarConviteEsgotado(personal, convite);
+        }
 
         return toAlunoResponseDTO(aluno);
     }

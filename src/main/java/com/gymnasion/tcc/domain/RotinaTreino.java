@@ -29,6 +29,10 @@ public class RotinaTreino {
     @Column(name = "frequencia_semanal", nullable = false)
     private Integer frequenciaSemanal;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean ativo = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "modalidade_id", nullable = false)
     private Modalidade modalidade;

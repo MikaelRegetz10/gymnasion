@@ -35,4 +35,19 @@ public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
     Optional<Aluno> findByUsuario(com.gymnasion.tcc.domain.Usuario usuario);
 
     Optional<Aluno> findByUsuarioId(UUID usuarioId);
+
+    long countByPersonalIdAndStatus(UUID personalId, StatusConvite status);
+
+    /**
+     * Alunos com status informado cujo cadastro (data de criação do usuário) é anterior ao limite.
+     * Usado pelo lembrete automático de alunos pendentes de aprovação.
+     */
+    @Query("SELECT a FROM Aluno a " +
+            "JOIN FETCH a.usuario u " +
+            "JOIN FETCH a.personal p " +
+            "JOIN FETCH p.usuario " +
+            "WHERE a.status = :status AND u.dataCriacao < :limite " +
+            "ORDER BY u.dataCriacao ASC")
+    List<Aluno> findByStatusCadastradosAntesDe(@Param("status") StatusConvite status,
+                                               @Param("limite") java.time.OffsetDateTime limite);
 }

@@ -12,7 +12,9 @@ import com.gymnasion.tcc.exceptions.BusinessException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.repository.AlunoRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
+import com.gymnasion.tcc.event.SolicitacaoAlunoAvaliadaEvent;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,8 @@ public class AlunoService {
 
     private final AlunoRepository alunoRepository;
     private final PersonalTrainerRepository personalTrainerRepository;
+    private final NotificacaoService notificacaoService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<AlunoResponseDTO> getAlunosVinculados(Usuario usuario) {
@@ -101,11 +105,27 @@ public class AlunoService {
         aluno.setStatus(StatusConvite.ATIVO);
         aluno = alunoRepository.save(aluno);
 
+        String nomePersonal = personalTrainer.getUsuario().getNome();
+
+        // US-03 C3: notificação in-app para o aluno
+        notificacaoService.notificarSolicitacaoAprovada(aluno, nomePersonal);
+
+        // Personal: solicitação tratada -> marca "Nova solicitação" como lida / remove lembrete se zerou
+        notificacaoService.resolverSolicitacao(personalTrainer, aluno.getId(), semAlunosPendentes(personalTrainer));
+
+        // US-03 C3: e-mail automático ao aluno (enviado após o commit)
+        eventPublisher.publishEvent(new SolicitacaoAlunoAvaliadaEvent(
+                aluno.getUsuario().getEmail(),
+                aluno.getUsuario().getNome(),
+                nomePersonal,
+                true
+        ));
+
         return toAlunoResponseDTO(aluno);
     }
 
     @Transactional
-    public void recusarAluno(UUID alunoId, Usuario usuarioLogado) {
+    public MensagemResponseDTO recusarAluno(UUID alunoId, Usuario usuarioLogado) {
         PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuarioLogado)
                 .orElseThrow(() -> new NotFoundException("Personal Trainer não encontrado!"));
 
@@ -120,7 +140,26 @@ public class AlunoService {
             throw new BusinessException("Este aluno não está pendente de aprovação.");
         }
 
+        // Captura os dados antes da exclusão para o e-mail
+        String emailAluno = aluno.getUsuario().getEmail();
+        String nomeAluno = aluno.getUsuario().getNome();
+        String nomePersonal = personalTrainer.getUsuario().getNome();
+
         alunoRepository.delete(aluno);
+        alunoRepository.flush();
+
+        // Personal: solicitação tratada -> marca "Nova solicitação" como lida / remove lembrete se zerou
+        notificacaoService.resolverSolicitacao(personalTrainer, alunoId, semAlunosPendentes(personalTrainer));
+
+        // US-03 C4: e-mail automático ao aluno (enviado após o commit)
+        eventPublisher.publishEvent(new SolicitacaoAlunoAvaliadaEvent(
+                emailAluno,
+                nomeAluno,
+                nomePersonal,
+                false
+        ));
+
+        return new MensagemResponseDTO("Aluno " + nomeAluno + " foi recusado com sucesso!");
     }
 
     private AlunoResponseDTO toAlunoResponseDTO(Aluno aluno) {
@@ -145,6 +184,10 @@ public class AlunoService {
                 aluno.getStatus(),
                 modalidadesDTO
         );
+    }
+
+    private boolean semAlunosPendentes(PersonalTrainer personal) {
+        return alunoRepository.countByPersonalIdAndStatus(personal.getId(), StatusConvite.PENDENTE) == 0;
     }
 
     private Aluno validarEPegarAlunoDoPersonal(UUID alunoId, Usuario usuarioLogado) {

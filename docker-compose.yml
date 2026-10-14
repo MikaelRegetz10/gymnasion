@@ -52,9 +52,23 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SERVER_SERVLET_CONTEXT_PATH: ${CONTEXT_PATH}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks:
+      - gymnasion_network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: gymnasion_mailpit
+    restart: always
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Interface web (caixa de entrada)
     networks:
       - gymnasion_network
 

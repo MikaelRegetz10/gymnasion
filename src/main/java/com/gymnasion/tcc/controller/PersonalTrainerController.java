@@ -67,13 +67,12 @@ public class PersonalTrainerController {
     }
 
     @PatchMapping("/alunos/{alunoId}/recusar")
-    @Operation(summary = "Recusar solicitação do aluno (US-03)", description = "Remove o registo pendente do aluno.")
-    @ApiResponse(responseCode = "204", description = "Aluno recusado com sucesso.")
-    public ResponseEntity<Void> recusarAluno(
+    @Operation(summary = "Recusar solicitação do aluno (US-03)", description = "Remove o registo pendente do aluno e envia e-mail automático informando a recusa.")
+    @ApiResponse(responseCode = "200", description = "Aluno recusado com sucesso.")
+    public ResponseEntity<MensagemResponseDTO> recusarAluno(
             @PathVariable("alunoId") UUID alunoId,
             @AuthenticationPrincipal Usuario usuario) {
-        alunoService.recusarAluno(alunoId, usuario);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(alunoService.recusarAluno(alunoId, usuario));
     }
 
     @PatchMapping("/alunos/{alunoId}/desativar")

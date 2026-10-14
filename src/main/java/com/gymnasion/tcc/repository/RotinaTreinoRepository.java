@@ -2,6 +2,8 @@ package com.gymnasion.tcc.repository;
 
 import com.gymnasion.tcc.domain.RotinaTreino;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,4 +18,10 @@ public interface RotinaTreinoRepository extends JpaRepository<RotinaTreino, UUID
     List<RotinaTreino> findByPersonalTrainerIdAndAlunosId(UUID personalTrainerId, UUID alunoId);
 
     Optional<RotinaTreino> findByIdAndPersonalTrainerId(UUID id, UUID personalTrainerId);
+
+    @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END FROM RotinaTreino r JOIN r.alunos a WHERE a.id = :alunoId AND r.ativo = true")
+    boolean existsByAlunoIdAndAtivoTrue(@Param("alunoId") UUID alunoId);
+
+    @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END FROM RotinaTreino r JOIN r.alunos a WHERE a.id = :alunoId AND r.ativo = true AND r.id <> :rotinaId")
+    boolean existsByAlunoIdAndAtivoTrueAndIdNot(@Param("alunoId") UUID alunoId, @Param("rotinaId") UUID rotinaId);
 }
