@@ -29,6 +29,7 @@ public class PersonalTrainerController {
 
     private final PersonalConviteService conviteService;
     private final AlunoService alunoService;
+    private final com.gymnasion.tcc.service.ObservacaoFeedbackService observacaoFeedbackService;
 
     @PostMapping("/convites")
     @Operation(summary = "Gerar link de convite temporário (US-03)", description = "Gera um link de registo válido por 15 minutos para partilhar com o aluno.")
@@ -89,5 +90,27 @@ public class PersonalTrainerController {
             @PathVariable("alunoId") UUID alunoId,
             @AuthenticationPrincipal Usuario usuario) {
         return ResponseEntity.ok(alunoService.reativarAluno(alunoId, usuario));
+    }
+
+    @PostMapping("/alunos/{alunoId}/observacoes-feedbacks")
+    @Operation(summary = "Registrar feedback sobre o aluno (US-26 C2)", description = "Permite ao personal responsável registrar um feedback imutável no perfil do aluno.")
+    @ApiResponse(responseCode = "201", description = "Feedback registrado com sucesso.")
+    @ApiResponse(responseCode = "400", description = "Conteúdo obrigatório ou inválido (US-26 C6).")
+    @ApiResponse(responseCode = "404", description = "Aluno não encontrado ou não pertence a este personal.")
+    public ResponseEntity<ObservacaoFeedbackResponseDTO> registrarFeedback(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("alunoId") UUID alunoId,
+            @Valid @RequestBody CriarObservacaoFeedbackRequestDTO dto) {
+        ObservacaoFeedbackResponseDTO response = observacaoFeedbackService.registrarFeedbackPeloPersonal(usuario, alunoId, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/alunos/{alunoId}/observacoes-feedbacks")
+    @Operation(summary = "Consultar histórico de observações e feedbacks do aluno (US-26 C1, C4)", description = "Retorna o histórico de observações do aluno e feedbacks do personal em ordem cronológica decrescente.")
+    @ApiResponse(responseCode = "200", description = "Histórico retornado com sucesso.")
+    public ResponseEntity<List<ObservacaoFeedbackResponseDTO>> listarObservacoesEFeedbacks(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("alunoId") UUID alunoId) {
+        return ResponseEntity.ok(observacaoFeedbackService.listarObservacoesEFeedbacksPeloPersonal(usuario, alunoId));
     }
 }
