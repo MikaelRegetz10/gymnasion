@@ -36,6 +36,9 @@ public class SecurityFilter extends OncePerRequestFilter {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
+    @Autowired
+    private com.gymnasion.tcc.repository.AlunoRepository alunoRepository;
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -67,6 +70,15 @@ public class SecurityFilter extends OncePerRequestFilter {
         if (!usuario.isEnabled()) {
             handleUnauthorizedResponse(response, "Conta de usuário desativada.");
             return;
+        }
+
+        // RN-014: Aluno inativo perde login imediatamente
+        if (usuario.getRole() == com.gymnasion.tcc.domain.enums.Role.ALUNO) {
+            com.gymnasion.tcc.domain.Aluno aluno = alunoRepository.findByUsuario(usuario).orElse(null);
+            if (aluno != null && aluno.getStatus() == com.gymnasion.tcc.domain.enums.StatusConvite.INATIVO) {
+                handleUnauthorizedResponse(response, "Erro. Este aluno está inativo.");
+                return;
+            }
         }
 
         var auth = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());

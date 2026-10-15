@@ -34,9 +34,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Autenticar utilizador (US-02)", description = "Realiza a autenticação e retorna o token JWT de acesso.")
+    @Operation(summary = "Autenticar utilizador (US-02)", description = "Realiza a autenticação e retorna o token JWT de acesso. Implementa bloqueio temporário após 5 tentativas inválidas por 5 minutos (RN-010) e restrição de acesso a alunos inativos (RN-014).")
     @ApiResponse(responseCode = "200", description = "Autenticação realizada com sucesso.")
-    @ApiResponse(responseCode = "401", description = "E-mail ou palavra-passe inválidos.")
+    @ApiResponse(responseCode = "401", description = "E-mail ou senha inválidos (US-02 C3).")
+    @ApiResponse(responseCode = "422", description = "Conta temporariamente bloqueada após 5 tentativas inválidas (RN-010) ou aluno inativo (RN-014).")
     public ResponseEntity<TokenResponseDTO> login(@Valid @RequestBody LoginRequestDTO dto) {
         TokenResponseDTO response = authService.login(dto);
         return ResponseEntity.ok(response);
