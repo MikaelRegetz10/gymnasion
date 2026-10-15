@@ -158,9 +158,9 @@ public class RotinaTreinoController {
     }
 
     @PostMapping("/sessoes/{sessaoId}/execucao")
-    @Operation(summary = "Registrar resultados e confirmar execução (US-10 C3, C4, C5, C7)", description = "Registra os resultados das métricas e RPE, registra a data real de execução (preservando a planejada) e marca a sessão como concluída.")
+    @Operation(summary = "Registrar resultados e confirmar execução (US-10 C3, C4, C5, C7)", description = "Registra os resultados das métricas e RPE, registra a data real de execução (preservando a planejada) e marca a sessão como concluída. Se a execução já foi registrada, apenas inclui métricas pendentes (auditadas como inclusão), preservando data real, duração, RPE e valores existentes.")
     @ApiResponse(responseCode = "200", description = "Execução registrada com sucesso.")
-    @ApiResponse(responseCode = "422", description = "Nenhum resultado de métrica informado, métrica exclusiva do aluno ou valores inválidos para o tipo configurado.")
+    @ApiResponse(responseCode = "422", description = "Nenhum resultado de métrica informado, métrica exclusiva do aluno, valores inválidos para o tipo configurado ou métrica já preenchida em execução já registrada (alterações devem usar a correção de desempenho - US-23).")
     public ResponseEntity<SessaoTreinoResponseDTO> registrarExecucao(
             @AuthenticationPrincipal Usuario usuario,
             @PathVariable("sessaoId") UUID sessaoId,

@@ -1,10 +1,12 @@
 package com.gymnasion.tcc.service;
 
 import com.gymnasion.tcc.domain.*;
+import com.gymnasion.tcc.domain.enums.CampoAuditado;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.Role;
 import com.gymnasion.tcc.domain.enums.StatusConvite;
 import com.gymnasion.tcc.domain.enums.StatusSessaoTreino;
+import com.gymnasion.tcc.domain.enums.TipoOperacaoAuditoria;
 import com.gymnasion.tcc.dto.*;
 import com.gymnasion.tcc.exceptions.BusinessException;
 import com.gymnasion.tcc.exceptions.MetricasInvalidasException;
@@ -14,25 +16,15 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
 public class RotinaTreinoService {
-
-    // US-18 notas técnicas: "Tempo" valida formato mm:ss (segundos de 00 a 59)
-    private static final Pattern FORMATO_TEMPO = Pattern.compile("^\\d{2,}:[0-5]\\d$");
-    // US-18 notas técnicas: "Frequência cardíaca" valida faixa numérica plausível (em bpm)
-    private static final int FREQUENCIA_CARDIACA_MINIMA = 30;
-    private static final int FREQUENCIA_CARDIACA_MAXIMA = 250;
-    // Limite da coluna registro_metrica.valor
-    private static final int TAMANHO_MAXIMO_VALOR_METRICA = 255;
 
     private final RotinaTreinoRepository rotinaTreinoRepository;
     private final ModalidadeRepository modalidadeRepository;
@@ -43,6 +35,7 @@ public class RotinaTreinoService {
     private final DesempenhoRepository desempenhoRepository;
     private final AcompanhamentoTreinoService acompanhamentoTreinoService;
     private final NotificacaoService notificacaoService;
+    private final AuditoriaDesempenhoRepository auditoriaDesempenhoRepository;
 
     @Transactional
     public RotinaTreinoResponseDTO criarRotinaTreino(Usuario usuario, CriarRotinaTreinoRequestDTO dto) {
@@ -526,18 +519,31 @@ public class RotinaTreinoService {
             registradoPor = "ALUNO";
         }
 
-        // US-10 Cenário 4: Data diferente da planejada - registra data efetiva e preserva a planejada
-        sessao.setDataReal(dto.dataReal());
-        if (dto.duracao() != null) {
-            sessao.setDuracao(dto.duracao());
-        }
+        boolean isPersonal = usuario.getRole() == Role.PERSONAL_TRAINER;
 
-        // US-10 Cenário 5: Confirmar conclusão - sessão concluída, registro vai ao histórico do aluno
-        sessao.setStatus(StatusSessaoTreino.CONCLUIDA);
+        // US-23: Com a execução já registrada, o personal apenas inclui métricas pendentes (com auditoria);
+        // data real, duração, RPE e valores existentes são preservados e só podem ser alterados pela correção (US-23)
+        boolean somenteInclusaoPendentes = isPersonal && sessao.getDesempenho() != null;
+        List<AuditoriaDesempenho> auditorias = new ArrayList<>();
+
+        if (!somenteInclusaoPendentes) {
+            // US-10 Cenário 4: Data diferente da planejada - registra data efetiva e preserva a planejada
+            sessao.setDataReal(dto.dataReal());
+            if (dto.duracao() != null) {
+                sessao.setDuracao(dto.duracao());
+            }
+
+            // US-10 Cenário 5: Confirmar conclusão - sessão concluída, registro vai ao histórico do aluno
+            sessao.setStatus(StatusSessaoTreino.CONCLUIDA);
+        }
 
         // US-10 Cenário 3: Registrar resultados - armazena vínculo com aluno, rotina, sessão e métricas
         Desempenho desempenho = sessao.getDesempenho();
-        if (desempenho == null) {
+        if (somenteInclusaoPendentes) {
+            if (desempenho.getAluno() != null) {
+                alunoResponsavel = desempenho.getAluno();
+            }
+        } else if (desempenho == null) {
             desempenho = Desempenho.builder()
                     .sessaoTreino(sessao)
                     .aluno(alunoResponsavel)
@@ -553,8 +559,6 @@ public class RotinaTreinoService {
                 desempenho.setNivelCansaco(dto.nivelCansaco());
             }
         }
-
-        boolean isPersonal = usuario.getRole() == Role.PERSONAL_TRAINER;
 
         Set<Metrica> metricasDaRotina = sessao.getRotinaTreino().getMetricas();
         Map<String, String> camposInvalidos = new LinkedHashMap<>();
@@ -578,14 +582,31 @@ public class RotinaTreinoService {
 
             // US-22 Cenário 9 / US-18 (RN-015): Valida o valor de acordo com o tipo da métrica
             String valor = resDto.valor().trim();
-            String erroTipo = validarValorPorTipo(metrica, valor);
+            String erroTipo = ValidadorValorMetrica.validar(metrica, valor);
             if (erroTipo != null) {
                 camposInvalidos.put(metrica.getId().toString(), erroTipo);
                 continue;
             }
 
-            // Atualiza métrica existente ou adiciona nova (preserva métricas preenchidas por outros papéis)
-            desempenho.getRegistrosMetricas().removeIf(rmExistente -> rmExistente.getMetrica().getId().equals(metrica.getId()));
+            if (somenteInclusaoPendentes) {
+                boolean jaPreenchida = desempenho.getRegistrosMetricas().stream()
+                        .anyMatch(rmExistente -> rmExistente.getMetrica().getId().equals(metrica.getId()));
+                if (jaPreenchida) {
+                    throw new BusinessException("A métrica '" + metrica.getTitulo() + "' já possui valor registrado. Para alterá-la, utilize a correção do registro de desempenho.");
+                }
+                // US-23 Cenário 7: Preenchimento de métrica pendente é registrado como inclusão na auditoria
+                auditorias.add(AuditoriaDesempenho.builder()
+                        .desempenho(desempenho)
+                        .tipoOperacao(TipoOperacaoAuditoria.INCLUSAO)
+                        .campo(CampoAuditado.METRICA)
+                        .metrica(metrica)
+                        .valorNovo(valor)
+                        .usuario(usuario)
+                        .build());
+            } else {
+                // Atualiza métrica existente ou adiciona nova (preserva métricas preenchidas por outros papéis)
+                desempenho.getRegistrosMetricas().removeIf(rmExistente -> rmExistente.getMetrica().getId().equals(metrica.getId()));
+            }
 
             RegistroMetrica rm = RegistroMetrica.builder()
                     .desempenho(desempenho)
@@ -619,6 +640,9 @@ public class RotinaTreinoService {
         }
 
         sessao = sessaoTreinoRepository.save(sessao);
+        if (!auditorias.isEmpty()) {
+            auditoriaDesempenhoRepository.saveAll(auditorias);
+        }
 
         // US-24 C5 e C6: Preencher métricas atualiza contagem na notificação e no perfil (remove se zerar)
         if (acompanhamentoTreinoService != null) {
@@ -721,42 +745,6 @@ public class RotinaTreinoService {
 
     private boolean execucaoConfirmada(SessaoTreino sessao) {
         return Boolean.TRUE.equals(sessao.getConcluidaAluno()) || sessao.getStatus() == StatusSessaoTreino.CONCLUIDA;
-    }
-
-    /**
-     * Valida o valor informado conforme o tipo da métrica (RN-015 / US-18 notas técnicas).
-     * Retorna a mensagem de erro, ou null quando o valor é válido.
-     */
-    private String validarValorPorTipo(Metrica metrica, String valor) {
-        String titulo = metrica.getTitulo();
-        if (valor.length() > TAMANHO_MAXIMO_VALOR_METRICA) {
-            return "O valor da métrica '" + titulo + "' deve ter no máximo " + TAMANHO_MAXIMO_VALOR_METRICA + " caracteres.";
-        }
-
-        return switch (metrica.getTipo()) {
-            case NUMERICO -> {
-                try {
-                    new BigDecimal(valor.replace(',', '.'));
-                    yield null;
-                } catch (NumberFormatException e) {
-                    yield "O valor da métrica '" + titulo + "' deve ser numérico.";
-                }
-            }
-            case TEMPO -> FORMATO_TEMPO.matcher(valor).matches()
-                    ? null
-                    : "O valor da métrica '" + titulo + "' deve estar no formato mm:ss.";
-            case FREQUENCIA_CARDIACA -> {
-                try {
-                    int bpm = Integer.parseInt(valor);
-                    yield bpm >= FREQUENCIA_CARDIACA_MINIMA && bpm <= FREQUENCIA_CARDIACA_MAXIMA
-                            ? null
-                            : "O valor da métrica '" + titulo + "' deve estar entre " + FREQUENCIA_CARDIACA_MINIMA + " e " + FREQUENCIA_CARDIACA_MAXIMA + " bpm.";
-                } catch (NumberFormatException e) {
-                    yield "O valor da métrica '" + titulo + "' deve ser um número inteiro de batimentos por minuto (bpm).";
-                }
-            }
-            case TEXTO -> null;
-        };
     }
 
     private PersonalTrainer obterPersonalLogado(Usuario usuario) {

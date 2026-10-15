@@ -35,6 +35,9 @@ public class Desempenho {
     @Column(name = "nivel_cansaco")
     private Integer nivelCansaco; // 1 a 10 (Escala Borg CR-10, RN-018)
 
+    @Column(columnDefinition = "TEXT")
+    private String observacoes; // US-23 C4: observações do desempenho, corrigíveis pelo personal
+
     @OneToMany(mappedBy = "desempenho", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private java.util.List<RegistroMetrica> registrosMetricas = new java.util.ArrayList<>();

@@ -5,6 +5,8 @@ import com.gymnasion.tcc.domain.enums.Role;
 import com.gymnasion.tcc.domain.enums.StatusSessaoTreino;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
+import com.gymnasion.tcc.domain.enums.CampoAuditado;
+import com.gymnasion.tcc.domain.enums.TipoOperacaoAuditoria;
 import com.gymnasion.tcc.dto.*;
 import com.gymnasion.tcc.exceptions.BusinessException;
 import com.gymnasion.tcc.exceptions.MetricasInvalidasException;
@@ -25,6 +27,7 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +56,9 @@ class RotinaTreinoServiceTest {
 
     @Mock
     private AcompanhamentoTreinoService acompanhamentoTreinoService;
+
+    @Mock
+    private AuditoriaDesempenhoRepository auditoriaDesempenhoRepository;
 
     @InjectMocks
 
@@ -1435,5 +1441,124 @@ class RotinaTreinoServiceTest {
 
         verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
     }
-}
 
+    @Test
+    @DisplayName("US23 / US10: Personal inclui métrica pendente em execução já registrada, com auditoria e sem alterar o registro do aluno")
+    void US23_personalIncluiPendenteEmExecucaoRegistradaComAuditoria() {
+        // Dado: sessão concluída pelo aluno, com métrica exclusiva do personal pendente
+        Metrica exclusivaPersonal = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Análise Técnica")
+                .tipo(TipoMetrica.TEXTO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .quemPreenche(ResponsavelPreenchimento.PERSONAL)
+                .build();
+        rotinaTreino.getMetricas().add(exclusivaPersonal);
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .dataReal(LocalDate.of(2026, 10, 22))
+                .duracao(55)
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .concluidaAluno(true)
+                .build();
+        Desempenho desempenho = Desempenho.builder()
+                .id(UUID.randomUUID())
+                .sessaoTreino(sessao)
+                .aluno(aluno)
+                .registradoPor("ALUNO")
+                .nivelCansaco(7)
+                .build();
+        desempenho.getRegistrosMetricas().add(RegistroMetrica.builder()
+                .desempenho(desempenho).metrica(metrica1).valor("00:29").build());
+        sessao.setDesempenho(desempenho);
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId())).thenReturn(Optional.of(sessao));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId())).thenReturn(Optional.of(aluno));
+        when(metricaRepository.findById(exclusivaPersonal.getId())).thenReturn(Optional.of(exclusivaPersonal));
+        when(sessaoTreinoRepository.save(any(SessaoTreino.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Quando: personal envia a métrica pendente com outros dados de execução
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 25),
+                90,
+                3,
+                aluno.getId(),
+                List.of(new RegistrarResultadoMetricaDTO(exclusivaPersonal.getId(), "Boa técnica"))
+        );
+        SessaoTreinoResponseDTO response = rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto);
+
+        // Então: a métrica é incluída e o registro original do aluno é preservado
+        assertThat(response.dataReal()).isEqualTo(LocalDate.of(2026, 10, 22));
+        assertThat(response.duracao()).isEqualTo(55);
+        assertThat(response.desempenho().nivelCansaco()).isEqualTo(7);
+        assertThat(response.desempenho().registradoPor()).isEqualTo("ALUNO");
+        assertThat(response.desempenho().metricas())
+                .extracting(RegistroMetricaResponseDTO::valor)
+                .containsExactlyInAnyOrder("00:29", "Boa técnica");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<AuditoriaDesempenho>> captor = ArgumentCaptor.forClass(List.class);
+        verify(auditoriaDesempenhoRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).singleElement().satisfies(auditoria -> {
+            assertThat(auditoria.getTipoOperacao()).isEqualTo(TipoOperacaoAuditoria.INCLUSAO);
+            assertThat(auditoria.getCampo()).isEqualTo(CampoAuditado.METRICA);
+            assertThat(auditoria.getValorNovo()).isEqualTo("Boa técnica");
+            assertThat(auditoria.getUsuario()).isSameAs(usuarioPersonal);
+        });
+    }
+
+    @Test
+    @DisplayName("US23 / US10: Personal não sobrescreve métrica já preenchida pelo endpoint de execução")
+    void US23_personalNaoSobrescreveMetricaPreenchidaPelaExecucao() {
+        // Dado: sessão concluída com métrica já preenchida
+        metrica2.setQuemPreenche(ResponsavelPreenchimento.AMBOS);
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .dataReal(LocalDate.of(2026, 10, 22))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .concluidaAluno(true)
+                .build();
+        Desempenho desempenho = Desempenho.builder()
+                .id(UUID.randomUUID())
+                .sessaoTreino(sessao)
+                .aluno(aluno)
+                .registradoPor("ALUNO")
+                .build();
+        desempenho.getRegistrosMetricas().add(RegistroMetrica.builder()
+                .desempenho(desempenho).metrica(metrica2).valor("30").build());
+        sessao.setDesempenho(desempenho);
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId())).thenReturn(Optional.of(sessao));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId())).thenReturn(Optional.of(aluno));
+        when(metricaRepository.findById(metrica2.getId())).thenReturn(Optional.of(metrica2));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 22),
+                null,
+                null,
+                aluno.getId(),
+                List.of(new RegistrarResultadoMetricaDTO(metrica2.getId(), "40"))
+        );
+
+        // Quando & Então: a alteração é recusada e deve ser feita pela correção (US-23)
+        assertThatThrownBy(() -> rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A métrica 'Braçadas' já possui valor registrado. Para alterá-la, utilize a correção do registro de desempenho.");
+
+        assertThat(desempenho.getRegistrosMetricas().get(0).getValor()).isEqualTo("30");
+        verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
+        verify(auditoriaDesempenhoRepository, never()).saveAll(anyList());
+    }
+}
