@@ -1442,6 +1442,366 @@ class RotinaTreinoServiceTest {
         verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
     }
 
+
+    // =========================================================================
+    // US-13: Registro de Desempenho do Aluno (Yasmin Rezende / RN-015)
+    // =========================================================================
+
+    @Test
+    @DisplayName("US13 Cenário 1: Salvar desempenho do aluno pelo personal trainer registrando data e lançador")
+    void US13_cenario1_salvarDesempenhoPeloPersonalComDataELancador() {
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessao));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(metricaRepository.findById(metrica1.getId())).thenReturn(Optional.of(metrica1));
+        when(sessaoTreinoRepository.save(any(SessaoTreino.class))).thenAnswer(i -> i.getArgument(0));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                50,
+                8,
+                aluno.getId(),
+                List.of(new RegistrarResultadoMetricaDTO(metrica1.getId(), "00:32"))
+        );
+
+        SessaoTreinoResponseDTO response = rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto);
+
+        assertThat(response.status()).isEqualTo(StatusSessaoTreino.CONCLUIDA);
+        assertThat(response.desempenho()).isNotNull();
+        assertThat(response.desempenho().registradoPor()).isEqualTo("PERSONAL_TRAINER");
+        assertThat(response.desempenho().alunoId()).isEqualTo(aluno.getId());
+        assertThat(response.desempenho().dataRegistro()).isNotNull();
+        assertThat(response.desempenho().metricas()).hasSize(1);
+        assertThat(response.desempenho().metricas().get(0).valor()).isEqualTo("00:32");
+    }
+
+    @Test
+    @DisplayName("US13 Cenário 2: Validar valor conforme o tipo da métrica (RN-015) impede salvamento com mensagem esperada")
+    void US13_cenario2_validarValorConformeTipoMetrica_invalidoImpedeSalvamento() {
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessao));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(metricaRepository.findById(metrica2.getId())).thenReturn(Optional.of(metrica2)); // NUMERICO
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                50,
+                null,
+                aluno.getId(),
+                List.of(new RegistrarResultadoMetricaDTO(metrica2.getId(), "valor-invalido"))
+        );
+
+        // Quando & Então: valor incompatível com tipo cadastrado impede salvamento e exibe mensagem de formato esperado
+        assertThatThrownBy(() -> rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto))
+                .isInstanceOf(MetricasInvalidasException.class)
+                .hasMessageContaining("Valor inválido para a métrica 'Braçadas'")
+                .hasMessageContaining("Verifique o formato esperado");
+
+        verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
+    }
+
+    @Test
+    @DisplayName("US13 Cenário 2: Validar tipos de métrica da RN-015 aceita todos os formatos válidos")
+    void US13_cenario2_validarTiposMetricaRN015_aceitaValoresValidos() {
+        Metrica fc = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("FC Repouso")
+                .tipo(TipoMetrica.FREQUENCIA_CARDIACA)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .quemPreenche(ResponsavelPreenchimento.AMBOS)
+                .build();
+
+        Metrica texto = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Sensação Pós-Treino")
+                .tipo(TipoMetrica.TEXTO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .quemPreenche(ResponsavelPreenchimento.AMBOS)
+                .build();
+
+        rotinaTreino.getMetricas().addAll(List.of(fc, texto));
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessao));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(metricaRepository.findById(metrica1.getId())).thenReturn(Optional.of(metrica1)); // TEMPO
+        when(metricaRepository.findById(metrica2.getId())).thenReturn(Optional.of(metrica2)); // NUMERICO
+        when(metricaRepository.findById(fc.getId())).thenReturn(Optional.of(fc)); // FREQUENCIA_CARDIACA
+        when(metricaRepository.findById(texto.getId())).thenReturn(Optional.of(texto)); // TEXTO
+        when(sessaoTreinoRepository.save(any(SessaoTreino.class))).thenAnswer(i -> i.getArgument(0));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                60,
+                null,
+                aluno.getId(),
+                List.of(
+                        new RegistrarResultadoMetricaDTO(metrica1.getId(), "01:25"),
+                        new RegistrarResultadoMetricaDTO(metrica2.getId(), "35,5"),
+                        new RegistrarResultadoMetricaDTO(fc.getId(), "140"),
+                        new RegistrarResultadoMetricaDTO(texto.getId(), "Excelente ritmo de prova.")
+                )
+        );
+
+        SessaoTreinoResponseDTO response = rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto);
+
+        assertThat(response.status()).isEqualTo(StatusSessaoTreino.CONCLUIDA);
+        assertThat(response.desempenho().metricas()).hasSize(4);
+        assertThat(response.desempenho().metricas())
+                .extracting(RegistroMetricaResponseDTO::valor)
+                .containsExactlyInAnyOrder("01:25", "35,5", "140", "Excelente ritmo de prova.");
+    }
+
+    @Test
+    @DisplayName("US13 Cenário 5: Impedir registro sem permissão definida na US-18")
+    void US13_cenario5_impedirRegistroSemPermissao() {
+        // Dado: metrica exclusiva do aluno
+        metrica1.setQuemPreenche(ResponsavelPreenchimento.ALUNO);
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessao));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(metricaRepository.findById(metrica1.getId())).thenReturn(Optional.of(metrica1));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                60,
+                null,
+                aluno.getId(),
+                List.of(new RegistrarResultadoMetricaDTO(metrica1.getId(), "00:30"))
+        );
+
+        // Quando & Então: personal tenta registrar métrica exclusiva do aluno -> bloqueia
+        assertThatThrownBy(() -> rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A métrica '" + metrica1.getTitulo() + "' é de preenchimento exclusivo do aluno.");
+
+        verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
+    }
+
+    @Test
+    @DisplayName("US13 / RN-014: Personal não pode registrar desempenho para aluno inativo")
+    void US13_RN014_bloquearRegistroDesempenhoAlunoInativo() {
+        Aluno alunoInativo = Aluno.builder()
+                .id(UUID.randomUUID())
+                .usuario(Usuario.builder().nome("Aluno Inativo").build())
+                .personal(personalTrainer)
+                .status(com.gymnasion.tcc.domain.enums.StatusConvite.INATIVO)
+                .build();
+
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessao));
+        when(alunoRepository.findByIdAndPersonalId(alunoInativo.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(alunoInativo));
+
+        RegistrarExecucaoSessaoRequestDTO dto = new RegistrarExecucaoSessaoRequestDTO(
+                LocalDate.of(2026, 10, 20),
+                50,
+                null,
+                alunoInativo.getId(),
+                List.of(new RegistrarResultadoMetricaDTO(metrica1.getId(), "00:30"))
+        );
+
+        assertThatThrownBy(() -> rotinaTreinoService.registrarExecucao(usuarioPersonal, sessaoId, dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Erro. Este aluno está inativo.");
+
+        verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
+    }
+
+    // =========================================================================
+    // US-21: Visualizar rotina e treinamentos como aluno
+    // =========================================================================
+
+    @Test
+    @DisplayName("US21 Cenários 1 e 2: Aluno consultando rotina ativa visualiza apenas semana atual e anterior; semanas futuras são travadas")
+    void US21_cenario1_e_2_alunoConsultaRotinaAtiva_travaSemanasFuturas() {
+        // Dado: rotina ativa com 4 semanas
+        SessaoTreino s1 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 5))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .build();
+
+        SessaoTreino s2 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(2)
+                .dataPlanejada(LocalDate.of(2026, 10, 12))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        SessaoTreino s3 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(3)
+                .dataPlanejada(LocalDate.of(2026, 10, 19))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        SessaoTreino s4 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(4)
+                .dataPlanejada(LocalDate.of(2026, 10, 26))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        rotinaTreino.setAtivo(true);
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(rotinaTreinoRepository.findById(rotinaTreino.getId())).thenReturn(Optional.of(rotinaTreino));
+        when(sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaTreino.getId()))
+                .thenReturn(List.of(s1, s2, s3, s4));
+
+        // Quando: aluno consulta o planejamento com data de referência na Semana 2
+        LocalDate dataRefSemana2 = LocalDate.of(2026, 10, 14);
+        PlanejamentoRotinaResponseDTO response = rotinaTreinoService.consultarPlanejamento(usuarioAluno, rotinaTreino.getId(), dataRefSemana2);
+
+        // Então: visualização restrita à semana atual (2) e semana anterior (1); semanas futuras (3 e 4) não são exibidas
+        assertThat(response.semanas()).hasSize(2);
+        assertThat(response.semanas())
+                .extracting(PlanejamentoRotinaResponseDTO.SemanaPlanejamentoDTO::numeroSemana)
+                .containsExactly(1, 2);
+    }
+
+    @Test
+    @DisplayName("US21 Cenário 2: Aluno na semana 1 visualiza apenas a semana 1, travando semanas futuras")
+    void US21_cenario2_alunoNaSemana1_apenasSemana1Retornada() {
+        SessaoTreino s1 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 5))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        SessaoTreino s2 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(2)
+                .dataPlanejada(LocalDate.of(2026, 10, 12))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        rotinaTreino.setAtivo(true);
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(rotinaTreinoRepository.findById(rotinaTreino.getId())).thenReturn(Optional.of(rotinaTreino));
+        when(sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaTreino.getId()))
+                .thenReturn(List.of(s1, s2));
+
+        // Data na semana 1
+        LocalDate dataRefSemana1 = LocalDate.of(2026, 10, 6);
+        PlanejamentoRotinaResponseDTO response = rotinaTreinoService.consultarPlanejamento(usuarioAluno, rotinaTreino.getId(), dataRefSemana1);
+
+        assertThat(response.semanas()).hasSize(1);
+        assertThat(response.semanas().get(0).numeroSemana()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("US21 Cenário 5: Aluno consultando rotina encerrada visualiza todas as semanas do histórico sem travar")
+    void US21_cenario5_alunoConsultaRotinaEncerrada_exibeTodasAsSemanas() {
+        SessaoTreino s1 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 5))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .build();
+
+        SessaoTreino s2 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(2)
+                .dataPlanejada(LocalDate.of(2026, 10, 12))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .build();
+
+        SessaoTreino s3 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(3)
+                .dataPlanejada(LocalDate.of(2026, 10, 19))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .build();
+
+        // Rotina encerrada (ativo = false)
+        rotinaTreino.setAtivo(false);
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        when(rotinaTreinoRepository.findById(rotinaTreino.getId())).thenReturn(Optional.of(rotinaTreino));
+        when(sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaTreino.getId()))
+                .thenReturn(List.of(s1, s2, s3));
+
+        // Mesmo com data na semana 1, rotina encerrada disponibiliza todas as semanas para consulta histórica
+        LocalDate dataRef = LocalDate.of(2026, 10, 6);
+        PlanejamentoRotinaResponseDTO response = rotinaTreinoService.consultarPlanejamento(usuarioAluno, rotinaTreino.getId(), dataRef);
+
+        assertThat(response.semanas()).hasSize(3);
+        assertThat(response.semanas())
+                .extracting(PlanejamentoRotinaResponseDTO.SemanaPlanejamentoDTO::numeroSemana)
+                .containsExactly(1, 2, 3);
+    }
+
     @Test
     @DisplayName("US23 / US10: Personal inclui métrica pendente em execução já registrada, com auditoria e sem alterar o registro do aluno")
     void US23_personalIncluiPendenteEmExecucaoRegistradaComAuditoria() {

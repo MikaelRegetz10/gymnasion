@@ -397,6 +397,11 @@ public class RotinaTreinoService {
 
     @Transactional(readOnly = true)
     public PlanejamentoRotinaResponseDTO consultarPlanejamento(Usuario usuario, UUID rotinaId) {
+        return consultarPlanejamento(usuario, rotinaId, LocalDate.now());
+    }
+
+    @Transactional(readOnly = true)
+    public PlanejamentoRotinaResponseDTO consultarPlanejamento(Usuario usuario, UUID rotinaId, LocalDate dataReferencia) {
         RotinaTreino rotina;
         if (usuario.getRole() == Role.PERSONAL_TRAINER) {
             PersonalTrainer personal = obterPersonalLogado(usuario);
@@ -411,6 +416,20 @@ public class RotinaTreinoService {
         }
 
         List<SessaoTreino> sessoes = sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaId);
+
+        // US-21 C2: Aluno visualizando rotina ativa tem visualização restrita à semana atual e à semana anterior;
+        // semanas futuras NÃO são exibidas.
+        // US-21 C5: Em rotinas encerradas, todas as semanas são exibidas para consulta do histórico.
+        // US-10 C1: O personal trainer consulta o planejamento completo com todas as semanas.
+        if (usuario.getRole() == Role.ALUNO && Boolean.TRUE.equals(rotina.getAtivo())) {
+            LocalDate ref = dataReferencia != null ? dataReferencia : LocalDate.now();
+            int semanaAtual = calcularSemanaAtual(sessoes, ref);
+            int semanaAnterior = semanaAtual - 1;
+
+            sessoes = sessoes.stream()
+                    .filter(s -> s.getSemana() != null && (s.getSemana() == semanaAtual || s.getSemana() == semanaAnterior))
+                    .toList();
+        }
 
         Map<Integer, List<SessaoTreinoResponseDTO>> sessoesPorSemana = sessoes.stream()
                 .map(this::toSessaoResponseDTO)
@@ -429,6 +448,41 @@ public class RotinaTreinoService {
                 rotina.getObjetivos(),
                 semanasDTO
         );
+    }
+
+    private int calcularSemanaAtual(List<SessaoTreino> sessoes, LocalDate dataReferencia) {
+        if (sessoes == null || sessoes.isEmpty()) {
+            return 1;
+        }
+
+        List<SessaoTreino> comData = sessoes.stream()
+                .filter(s -> s.getDataPlanejada() != null && s.getSemana() != null)
+                .sorted(Comparator.comparing(SessaoTreino::getDataPlanejada))
+                .toList();
+
+        if (comData.isEmpty()) {
+            return sessoes.stream()
+                    .map(SessaoTreino::getSemana)
+                    .filter(Objects::nonNull)
+                    .min(Integer::compareTo)
+                    .orElse(1);
+        }
+
+        LocalDate primeiraData = comData.get(0).getDataPlanejada();
+        if (dataReferencia.isBefore(primeiraData)) {
+            return comData.get(0).getSemana();
+        }
+
+        LocalDate ultimaData = comData.get(comData.size() - 1).getDataPlanejada();
+        if (dataReferencia.isAfter(ultimaData)) {
+            return comData.get(comData.size() - 1).getSemana();
+        }
+
+        return comData.stream()
+                .filter(s -> !s.getDataPlanejada().isAfter(dataReferencia))
+                .map(SessaoTreino::getSemana)
+                .reduce((first, second) -> second)
+                .orElse(comData.get(0).getSemana());
     }
 
     @Transactional
@@ -500,6 +554,11 @@ public class RotinaTreinoService {
                 throw new BusinessException("Nenhum aluno informado ou vinculado à rotina.");
             }
 
+            // RN-014: Aluno inativo
+            if (alunoResponsavel.getStatus() == StatusConvite.INATIVO) {
+                throw new BusinessException("Erro. Este aluno está inativo.");
+            }
+
             // US-10: O registro feito pelo personal exige ao menos um resultado de métrica
             if (resultados.isEmpty()) {
                 throw new BusinessException("É necessário informar pelo menos um resultado de métrica.");
@@ -508,6 +567,12 @@ public class RotinaTreinoService {
         } else {
             alunoResponsavel = alunoRepository.findByUsuario(usuario)
                     .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+
+            // RN-014: Aluno inativo
+            if (alunoResponsavel.getStatus() == StatusConvite.INATIVO) {
+                throw new BusinessException("Erro. Este aluno está inativo.");
+            }
+
             sessao = sessaoTreinoRepository.findByIdAndAlunoId(sessaoId, alunoResponsavel.getId())
                     .orElseThrow(() -> new NotFoundException("Sessão de treino não encontrada para este aluno."));
 
@@ -746,6 +811,7 @@ public class RotinaTreinoService {
     private boolean execucaoConfirmada(SessaoTreino sessao) {
         return Boolean.TRUE.equals(sessao.getConcluidaAluno()) || sessao.getStatus() == StatusSessaoTreino.CONCLUIDA;
     }
+
 
     private PersonalTrainer obterPersonalLogado(Usuario usuario) {
         return personalTrainerRepository.getByUsuario(usuario)
