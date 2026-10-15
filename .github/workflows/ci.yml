@@ -8,10 +8,46 @@ on:
     branches:
       - main
 
+# Cancela execuções anteriores em andamento caso novos commits sejam enviados na mesma branch / PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Build & Run Tests
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ${{ vars.POSTGRES_DB || 'gymnasion_db' }}
+          POSTGRES_USER: ${{ vars.POSTGRES_USER || 'gymnasion_user' }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      POSTGRES_DB: ${{ vars.POSTGRES_DB || 'gymnasion_db' }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER || 'gymnasion_user' }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRATION_MS: ${{ vars.JWT_EXPIRATION_MS || '86400000' }}
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL || 'http://localhost:5173' }}
+      MAIL_HOST: localhost
+      MAIL_PORT: 1025
+      MAIL_FROM: ${{ vars.MAIL_FROM || 'no-reply@gymnasion.local' }}
+      NOTIF_PENDENTES_ENABLED: false
 
     steps:
       - name: Checkout do código
@@ -27,5 +63,13 @@ jobs:
       - name: Dar permissão de execução ao mvnw
         run: chmod +x ./mvnw
 
-      - name: Executar testes unitários e de integração
-        run: ./mvnw clean test
+      - name: Executar testes unitários, integração e validação de build
+        run: ./mvnw -B --no-transfer-progress clean verify
+
+      - name: Armazenar relatórios de teste (Surefire)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          retention-days: 7
