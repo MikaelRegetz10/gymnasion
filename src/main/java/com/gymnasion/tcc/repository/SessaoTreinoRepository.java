@@ -2,6 +2,8 @@ package com.gymnasion.tcc.repository;
 
 import com.gymnasion.tcc.domain.SessaoTreino;
 import com.gymnasion.tcc.domain.enums.StatusSessaoTreino;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +19,8 @@ public interface SessaoTreinoRepository extends JpaRepository<SessaoTreino, UUID
     List<SessaoTreino> findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(UUID rotinaTreinoId);
 
     List<SessaoTreino> findByRotinaTreinoIdAndStatusOrderByDataRealDesc(UUID rotinaTreinoId, StatusSessaoTreino status);
+
+    Page<SessaoTreino> findByRotinaTreinoIdAndStatusOrderByDataRealDesc(UUID rotinaTreinoId, StatusSessaoTreino status, Pageable pageable);
 
     @Query("SELECT s FROM SessaoTreino s " +
             "JOIN s.rotinaTreino r " +
@@ -35,4 +39,12 @@ public interface SessaoTreinoRepository extends JpaRepository<SessaoTreino, UUID
             "WHERE a.id = :alunoId AND s.status = :status " +
             "ORDER BY s.dataReal DESC")
     List<SessaoTreino> findByAlunoIdAndStatusOrderByDataRealDesc(@Param("alunoId") UUID alunoId, @Param("status") StatusSessaoTreino status);
+
+    @Query(value = "SELECT s FROM SessaoTreino s " +
+            "JOIN s.rotinaTreino r " +
+            "JOIN r.alunos a " +
+            "WHERE a.id = :alunoId AND s.status = :status " +
+            "ORDER BY s.dataReal DESC",
+            countQuery = "SELECT count(s) FROM SessaoTreino s JOIN s.rotinaTreino r JOIN r.alunos a WHERE a.id = :alunoId AND s.status = :status")
+    Page<SessaoTreino> findByAlunoIdAndStatusOrderByDataRealDesc(@Param("alunoId") UUID alunoId, @Param("status") StatusSessaoTreino status, Pageable pageable);
 }

@@ -1,6 +1,8 @@
 package com.gymnasion.tcc.repository;
 
 import com.gymnasion.tcc.domain.ObservacaoFeedback;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,4 +20,12 @@ public interface ObservacaoFeedbackRepository extends JpaRepository<ObservacaoFe
             "WHERE o.aluno.id = :alunoId " +
             "ORDER BY o.dataCriacao DESC")
     List<ObservacaoFeedback> findByAlunoIdOrderByDataCriacaoDesc(@Param("alunoId") UUID alunoId);
+
+    @Query(value = "SELECT o FROM ObservacaoFeedback o " +
+            "JOIN FETCH o.autor a " +
+            "JOIN FETCH o.aluno al " +
+            "WHERE o.aluno.id = :alunoId " +
+            "ORDER BY o.dataCriacao DESC",
+            countQuery = "SELECT count(o) FROM ObservacaoFeedback o WHERE o.aluno.id = :alunoId")
+    Page<ObservacaoFeedback> findByAlunoIdOrderByDataCriacaoDesc(@Param("alunoId") UUID alunoId, Pageable pageable);
 }

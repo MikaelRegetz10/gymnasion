@@ -15,6 +15,8 @@ import com.gymnasion.tcc.repository.AlunoRepository;
 import com.gymnasion.tcc.repository.ObservacaoFeedbackRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -107,6 +109,20 @@ public class ObservacaoFeedbackService {
     }
 
     @Transactional(readOnly = true)
+    public Page<ObservacaoFeedbackResponseDTO> listarObservacoesEFeedbacksPeloPersonal(
+            Usuario usuario,
+            UUID alunoId,
+            Pageable pageable
+    ) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        alunoRepository.findByIdAndPersonalId(alunoId, personal.getId())
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado ou não pertence a este Personal Trainer."));
+
+        return observacaoFeedbackRepository.findByAlunoIdOrderByDataCriacaoDesc(alunoId, pageable)
+                .map(this::toDTO);
+    }
+
+    @Transactional(readOnly = true)
     public List<ObservacaoFeedbackResponseDTO> listarObservacoesEFeedbacksPeloPersonal(
             Usuario usuario,
             UUID alunoId
@@ -122,6 +138,15 @@ public class ObservacaoFeedbackService {
     }
 
     @Transactional(readOnly = true)
+    public Page<ObservacaoFeedbackResponseDTO> listarObservacoesEFeedbacksPeloAluno(Usuario usuario, Pageable pageable) {
+        Aluno aluno = alunoRepository.findByUsuario(usuario)
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+
+        return observacaoFeedbackRepository.findByAlunoIdOrderByDataCriacaoDesc(aluno.getId(), pageable)
+                .map(this::toDTO);
+    }
+
+    @Transactional(readOnly = true)
     public List<ObservacaoFeedbackResponseDTO> listarObservacoesEFeedbacksPeloAluno(Usuario usuario) {
         Aluno aluno = alunoRepository.findByUsuario(usuario)
                 .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
@@ -130,6 +155,24 @@ public class ObservacaoFeedbackService {
                 .stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ObservacaoFeedbackResponseDTO> listarPorAluno(Usuario usuario, UUID alunoId, Pageable pageable) {
+        if (usuario.getRole() == Role.PERSONAL_TRAINER) {
+            return listarObservacoesEFeedbacksPeloPersonal(usuario, alunoId, pageable);
+        } else if (usuario.getRole() == Role.ALUNO) {
+            Aluno aluno = alunoRepository.findByUsuario(usuario)
+                    .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+
+            if (!aluno.getId().equals(alunoId)) {
+                throw new BusinessException("Você não tem permissão para visualizar as observações de outro aluno.");
+            }
+            return observacaoFeedbackRepository.findByAlunoIdOrderByDataCriacaoDesc(alunoId, pageable)
+                    .map(this::toDTO);
+        } else {
+            throw new BusinessException("Papel de usuário não autorizado.");
+        }
     }
 
     @Transactional(readOnly = true)

@@ -2,16 +2,18 @@ package com.gymnasion.tcc.controller;
 
 import com.gymnasion.tcc.dto.ModalidadeRequestDTO;
 import com.gymnasion.tcc.dto.ModalidadeResponseDTO;
+import com.gymnasion.tcc.dto.PageResponseDTO;
 import com.gymnasion.tcc.service.ModalidadeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/modalidades")
@@ -22,9 +24,10 @@ public class ModalidadeController {
     private final ModalidadeService modalidadeService;
 
     @GetMapping
-    @Operation(summary = "Listar todas as modalidades", description = "Retorna a lista completa de modalidades desportivas disponíveis.")
-    public ResponseEntity<List<ModalidadeResponseDTO>> listarTodas() {
-        return ResponseEntity.ok(modalidadeService.listarTodas());
+    @Operation(summary = "Listar todas as modalidades", description = "Retorna a lista de modalidades desportivas disponíveis de forma paginada.")
+    public ResponseEntity<PageResponseDTO<ModalidadeResponseDTO>> listarTodas(
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(modalidadeService.listarTodas(pageable)));
     }
 
     @GetMapping("/{id}")

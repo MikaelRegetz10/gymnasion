@@ -1,8 +1,7 @@
 package com.gymnasion.tcc.controller;
 
 import com.gymnasion.tcc.domain.Usuario;
-import com.gymnasion.tcc.dto.CriarObservacaoFeedbackRequestDTO;
-import com.gymnasion.tcc.dto.ObservacaoFeedbackResponseDTO;
+import com.gymnasion.tcc.dto.*;
 import com.gymnasion.tcc.service.ObservacaoFeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -10,13 +9,15 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -43,11 +44,12 @@ public class ObservacaoFeedbackController {
     }
 
     @GetMapping("/alunos/{alunoId}")
-    @Operation(summary = "Consultar histórico de observações e feedbacks do aluno (US-26 C1, C4)", description = "Retorna o histórico de observações do aluno e feedbacks do personal em ordem cronológica decrescente.")
+    @Operation(summary = "Consultar histórico de observações e feedbacks do aluno (US-26 C1, C4)", description = "Retorna o histórico de observações do aluno e feedbacks do personal em ordem cronológica decrescente de forma paginada.")
     @ApiResponse(responseCode = "200", description = "Histórico retornado com sucesso.")
-    public ResponseEntity<List<ObservacaoFeedbackResponseDTO>> listar(
+    public ResponseEntity<PageResponseDTO<ObservacaoFeedbackResponseDTO>> listar(
             @AuthenticationPrincipal Usuario usuario,
-            @PathVariable("alunoId") UUID alunoId) {
-        return ResponseEntity.ok(observacaoFeedbackService.listarPorAluno(usuario, alunoId));
+            @PathVariable("alunoId") UUID alunoId,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(observacaoFeedbackService.listarPorAluno(usuario, alunoId, pageable)));
     }
 }

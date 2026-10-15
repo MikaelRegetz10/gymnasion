@@ -16,6 +16,8 @@ import com.gymnasion.tcc.repository.ModalidadeRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
 import com.gymnasion.tcc.repository.RegistroMetricaRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +61,17 @@ public class MetricaService {
         metrica = metricaRepository.save(metrica);
 
         return toResponseDTO(metrica, 0L);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<MetricaResponseDTO> listarMetricasPorModalidade(Usuario usuario, Long modalidadeId, Pageable pageable) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+
+        return metricaRepository.findByPersonalTrainerIdAndModalidadeId(personal.getId(), modalidadeId, pageable)
+                .map(metrica -> {
+                    Long qtdAlunos = registroMetricaRepository.countAlunosComRegistrosByMetricaId(metrica.getId());
+                    return toResponseDTO(metrica, qtdAlunos);
+                });
     }
 
     @Transactional(readOnly = true)

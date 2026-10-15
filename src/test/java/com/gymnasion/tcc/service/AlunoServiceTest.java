@@ -24,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -125,5 +126,47 @@ class AlunoServiceTest {
 
         verify(emailService).notificarAprovacaoAluno("a@a.com", "P");
         verify(emailService).notificarRecusaAluno("b@b.com", "P");
+    }
+
+    @Test
+    @DisplayName("Paginação: getAlunosVinculados com Pageable retorna página correta")
+    void getAlunosVinculados_comPaginacao() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 5);
+        org.springframework.data.domain.Page<Aluno> pageMock = new org.springframework.data.domain.PageImpl<>(List.of(aluno), pageable, 1);
+        when(alunoRepository.findByPersonalId(personal.getId(), pageable)).thenReturn(pageMock);
+
+        org.springframework.data.domain.Page<AlunoResponseDTO> resultado = alunoService.getAlunosVinculados(usuarioPersonal, pageable);
+
+        assertThat(resultado.getTotalElements()).isEqualTo(1);
+        assertThat(resultado.getContent()).hasSize(1);
+        assertThat(resultado.getContent().get(0).id()).isEqualTo(aluno.getId());
+    }
+
+    @Test
+    @DisplayName("Paginação: getAlunosPendentes com Pageable retorna página correta")
+    void getAlunosPendentes_comPaginacao() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 5);
+        org.springframework.data.domain.Page<Aluno> pageMock = new org.springframework.data.domain.PageImpl<>(List.of(aluno), pageable, 1);
+        when(alunoRepository.findByPersonalIdAndStatus(personal.getId(), StatusConvite.PENDENTE, pageable)).thenReturn(pageMock);
+
+        org.springframework.data.domain.Page<AlunoResponseDTO> resultado = alunoService.getAlunosPendentes(usuarioPersonal, pageable);
+
+        assertThat(resultado.getTotalElements()).isEqualTo(1);
+        assertThat(resultado.getContent()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Paginação: getAlunosInativos com Pageable retorna página correta")
+    void getAlunosInativos_comPaginacao() {
+        aluno.setStatus(StatusConvite.INATIVO);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 5);
+        org.springframework.data.domain.Page<Aluno> pageMock = new org.springframework.data.domain.PageImpl<>(List.of(aluno), pageable, 1);
+        when(alunoRepository.findByPersonalIdAndStatus(personal.getId(), StatusConvite.INATIVO, pageable)).thenReturn(pageMock);
+
+        org.springframework.data.domain.Page<AlunoResponseDTO> resultado = alunoService.getAlunosInativos(usuarioPersonal, pageable);
+
+        assertThat(resultado.getTotalElements()).isEqualTo(1);
+        assertThat(resultado.getContent()).hasSize(1);
+        assertThat(resultado.getContent().get(0).status()).isEqualTo(StatusConvite.INATIVO);
     }
 }

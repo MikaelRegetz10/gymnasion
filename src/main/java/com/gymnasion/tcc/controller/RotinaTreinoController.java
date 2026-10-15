@@ -9,13 +9,15 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -40,17 +42,20 @@ public class RotinaTreinoController {
     }
 
     @GetMapping
-    @Operation(summary = "Listar todas as rotinas do Personal Trainer (US-09)", description = "Retorna todas as rotinas de treino criadas pelo Personal Trainer autenticado.")
-    public ResponseEntity<List<RotinaTreinoResponseDTO>> listarMinhasRotinas(@AuthenticationPrincipal Usuario usuario) {
-        return ResponseEntity.ok(rotinaTreinoService.listarPorPersonal(usuario));
+    @Operation(summary = "Listar todas as rotinas do Personal Trainer (US-09)", description = "Retorna todas as rotinas de treino criadas pelo Personal Trainer autenticado de forma paginada.")
+    public ResponseEntity<PageResponseDTO<RotinaTreinoResponseDTO>> listarMinhasRotinas(
+            @AuthenticationPrincipal Usuario usuario,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(rotinaTreinoService.listarPorPersonal(usuario, pageable)));
     }
 
     @GetMapping("/aluno/{alunoId}")
-    @Operation(summary = "Visualizar rotinas de treino do aluno (US-11)", description = "Retorna as rotinas associadas a um aluno específico.")
-    public ResponseEntity<List<RotinaTreinoResponseDTO>> listarPorAluno(
+    @Operation(summary = "Visualizar rotinas de treino do aluno (US-11)", description = "Retorna as rotinas associadas a um aluno específico de forma paginada.")
+    public ResponseEntity<PageResponseDTO<RotinaTreinoResponseDTO>> listarPorAluno(
             @AuthenticationPrincipal Usuario usuario,
-            @PathVariable("alunoId") UUID alunoId) {
-        return ResponseEntity.ok(rotinaTreinoService.listarPorAluno(usuario, alunoId));
+            @PathVariable("alunoId") UUID alunoId,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(rotinaTreinoService.listarPorAluno(usuario, alunoId, pageable)));
     }
 
     @GetMapping("/{id}")
@@ -180,18 +185,20 @@ public class RotinaTreinoController {
     }
 
     @GetMapping("/{id}/historico")
-    @Operation(summary = "Consultar histórico de treinos da rotina (US-10 C8)", description = "Retorna os treinos executados da rotina com data real, RPE e resultados das métricas.")
-    public ResponseEntity<List<SessaoTreinoResponseDTO>> consultarHistoricoRotina(
+    @Operation(summary = "Consultar histórico de treinos da rotina (US-10 C8)", description = "Retorna os treinos executados da rotina com data real, RPE e resultados das métricas de forma paginada.")
+    public ResponseEntity<PageResponseDTO<SessaoTreinoResponseDTO>> consultarHistoricoRotina(
             @AuthenticationPrincipal Usuario usuario,
-            @PathVariable("id") UUID rotinaId) {
-        return ResponseEntity.ok(rotinaTreinoService.consultarHistoricoRotina(usuario, rotinaId));
+            @PathVariable("id") UUID rotinaId,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(rotinaTreinoService.consultarHistoricoRotina(usuario, rotinaId, pageable)));
     }
 
     @GetMapping("/aluno/{alunoId}/historico")
-    @Operation(summary = "Consultar histórico de treinos do aluno (US-10 C8)", description = "Retorna todos os treinos realizados pelo aluno especificado.")
-    public ResponseEntity<List<SessaoTreinoResponseDTO>> consultarHistoricoAluno(
+    @Operation(summary = "Consultar histórico de treinos do aluno (US-10 C8)", description = "Retorna todos os treinos realizados pelo aluno especificado de forma paginada.")
+    public ResponseEntity<PageResponseDTO<SessaoTreinoResponseDTO>> consultarHistoricoAluno(
             @AuthenticationPrincipal Usuario usuario,
-            @PathVariable("alunoId") UUID alunoId) {
-        return ResponseEntity.ok(rotinaTreinoService.consultarHistoricoAluno(usuario, alunoId));
+            @PathVariable("alunoId") UUID alunoId,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(rotinaTreinoService.consultarHistoricoAluno(usuario, alunoId, pageable)));
     }
 }

@@ -1,6 +1,8 @@
 package com.gymnasion.tcc.repository;
 
 import com.gymnasion.tcc.domain.RotinaTreino;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,7 +17,11 @@ public interface RotinaTreinoRepository extends JpaRepository<RotinaTreino, UUID
 
     List<RotinaTreino> findByPersonalTrainerId(UUID personalTrainerId);
 
+    Page<RotinaTreino> findByPersonalTrainerId(UUID personalTrainerId, Pageable pageable);
+
     List<RotinaTreino> findByPersonalTrainerIdAndAlunosId(UUID personalTrainerId, UUID alunoId);
+
+    Page<RotinaTreino> findByPersonalTrainerIdAndAlunosId(UUID personalTrainerId, UUID alunoId, Pageable pageable);
 
     Optional<RotinaTreino> findByIdAndPersonalTrainerId(UUID id, UUID personalTrainerId);
 

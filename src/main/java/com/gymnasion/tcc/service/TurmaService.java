@@ -10,6 +10,8 @@ import com.gymnasion.tcc.repository.ModalidadeRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
 import com.gymnasion.tcc.repository.TurmaRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +62,13 @@ public class TurmaService {
 
         turma = turmaRepository.save(turma);
         return toResponseDTO(turma);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TurmaResponseDTO> listarTurmas(Usuario usuario, Pageable pageable) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        return turmaRepository.findByPersonalId(personal.getId(), pageable)
+                .map(this::toResponseDTO);
     }
 
     @Transactional(readOnly = true)

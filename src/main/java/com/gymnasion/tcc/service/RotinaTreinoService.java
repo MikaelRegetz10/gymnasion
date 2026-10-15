@@ -13,6 +13,8 @@ import com.gymnasion.tcc.exceptions.MetricasInvalidasException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.repository.*;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -98,12 +100,26 @@ public class RotinaTreinoService {
     }
 
     @Transactional(readOnly = true)
+    public Page<RotinaTreinoResponseDTO> listarPorPersonal(Usuario usuario, Pageable pageable) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        return rotinaTreinoRepository.findByPersonalTrainerId(personal.getId(), pageable)
+                .map(this::toResponseDTO);
+    }
+
+    @Transactional(readOnly = true)
     public List<RotinaTreinoResponseDTO> listarPorPersonal(Usuario usuario) {
         PersonalTrainer personal = obterPersonalLogado(usuario);
         return rotinaTreinoRepository.findByPersonalTrainerId(personal.getId())
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<RotinaTreinoResponseDTO> listarPorAluno(Usuario usuario, UUID alunoId, Pageable pageable) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        return rotinaTreinoRepository.findByPersonalTrainerIdAndAlunosId(personal.getId(), alunoId, pageable)
+                .map(this::toResponseDTO);
     }
 
     @Transactional(readOnly = true)
@@ -763,6 +779,25 @@ public class RotinaTreinoService {
     }
 
     @Transactional(readOnly = true)
+    public Page<SessaoTreinoResponseDTO> consultarHistoricoRotina(Usuario usuario, UUID rotinaId, Pageable pageable) {
+        if (usuario.getRole() == Role.PERSONAL_TRAINER) {
+            PersonalTrainer personal = obterPersonalLogado(usuario);
+            rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaId, personal.getId())
+                    .orElseThrow(() -> new NotFoundException("Rotina de treino não encontrada."));
+        } else {
+            Aluno aluno = alunoRepository.findByUsuario(usuario)
+                    .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+            rotinaTreinoRepository.findById(rotinaId)
+                    .filter(r -> r.getAlunos().contains(aluno))
+                    .orElseThrow(() -> new NotFoundException("Rotina de treino não encontrada para este aluno."));
+        }
+
+        // US-10 Cenário 8: Histórico - treinos realizados e resultados
+        return sessaoTreinoRepository.findByRotinaTreinoIdAndStatusOrderByDataRealDesc(rotinaId, StatusSessaoTreino.CONCLUIDA, pageable)
+                .map(this::toSessaoResponseDTO);
+    }
+
+    @Transactional(readOnly = true)
     public List<SessaoTreinoResponseDTO> consultarHistoricoRotina(Usuario usuario, UUID rotinaId) {
         if (usuario.getRole() == Role.PERSONAL_TRAINER) {
             PersonalTrainer personal = obterPersonalLogado(usuario);
@@ -781,6 +816,16 @@ public class RotinaTreinoService {
                 .stream()
                 .map(this::toSessaoResponseDTO)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SessaoTreinoResponseDTO> consultarHistoricoAluno(Usuario usuario, UUID alunoId, Pageable pageable) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        alunoRepository.findByIdAndPersonalId(alunoId, personal.getId())
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado para este Personal Trainer."));
+
+        return sessaoTreinoRepository.findByAlunoIdAndStatusOrderByDataRealDesc(alunoId, StatusSessaoTreino.CONCLUIDA, pageable)
+                .map(this::toSessaoResponseDTO);
     }
 
     @Transactional(readOnly = true)

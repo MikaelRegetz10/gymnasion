@@ -1,8 +1,7 @@
 package com.gymnasion.tcc.controller;
 
 import com.gymnasion.tcc.domain.Usuario;
-import com.gymnasion.tcc.dto.MensagemResponseDTO;
-import com.gymnasion.tcc.dto.NotificacaoResponseDTO;
+import com.gymnasion.tcc.dto.*;
 import com.gymnasion.tcc.service.AcompanhamentoTreinoService;
 import com.gymnasion.tcc.service.NotificacaoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,12 +9,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -32,12 +33,13 @@ public class NotificacaoController {
     @GetMapping
     @Operation(
             summary = "Listar notificações do Personal Trainer (US-24 C4)",
-            description = "Retorna a lista de notificações agrupadas por aluno com contagem de pendências."
+            description = "Retorna a lista paginada de notificações agrupadas por aluno com contagem de pendências."
     )
     @ApiResponse(responseCode = "200", description = "Lista de notificações retornada com sucesso.")
-    public ResponseEntity<List<NotificacaoResponseDTO>> listarMinhasNotificacoes(
-            @AuthenticationPrincipal Usuario usuario) {
-        return ResponseEntity.ok(acompanhamentoTreinoService.listarNotificacoes(usuario));
+    public ResponseEntity<PageResponseDTO<NotificacaoResponseDTO>> listarMinhasNotificacoes(
+            @AuthenticationPrincipal Usuario usuario,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(acompanhamentoTreinoService.listarNotificacoes(usuario, pageable)));
     }
 
     @PatchMapping("/{id}/ler")

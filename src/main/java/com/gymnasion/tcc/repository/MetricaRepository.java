@@ -1,6 +1,8 @@
 package com.gymnasion.tcc.repository;
 
 import com.gymnasion.tcc.domain.Metrica;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,6 +18,8 @@ public interface MetricaRepository extends JpaRepository<Metrica, UUID> {
     boolean existsByPersonalTrainerIdAndModalidadeIdAndTituloIgnoreCaseAndIdNot(UUID personalId, Long modalidadeId, String titulo, UUID id);
 
     List<Metrica> findByPersonalTrainerIdAndModalidadeId(UUID personalId, Long modalidadeId);
+
+    Page<Metrica> findByPersonalTrainerIdAndModalidadeId(UUID personalId, Long modalidadeId, Pageable pageable);
 
     Optional<Metrica> findByIdAndPersonalTrainerId(UUID id, UUID personalId);
 }

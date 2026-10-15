@@ -5,6 +5,7 @@ import com.gymnasion.tcc.dto.AtualizarMetricaRequestDTO;
 import com.gymnasion.tcc.dto.CriarMetricaRequestDTO;
 import com.gymnasion.tcc.dto.MensagemResponseDTO;
 import com.gymnasion.tcc.dto.MetricaResponseDTO;
+import com.gymnasion.tcc.dto.PageResponseDTO;
 import com.gymnasion.tcc.service.MetricaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -12,13 +13,15 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -44,11 +47,12 @@ public class MetricaController {
     }
 
     @GetMapping
-    @Operation(summary = "Listar métricas por modalidade (US-18)", description = "Retorna todas as métricas criadas para a modalidade com título, tipo, obrigatoriedade, responsáveis e contagem de alunos com registros.")
-    public ResponseEntity<List<MetricaResponseDTO>> listarPorModalidade(
+    @Operation(summary = "Listar métricas por modalidade (US-18)", description = "Retorna todas as métricas criadas para a modalidade com título, tipo, obrigatoriedade, responsáveis e contagem de alunos com registros de forma paginada.")
+    public ResponseEntity<PageResponseDTO<MetricaResponseDTO>> listarPorModalidade(
             @AuthenticationPrincipal Usuario usuario,
-            @RequestParam("modalidadeId") Long modalidadeId) {
-        return ResponseEntity.ok(metricaService.listarMetricasPorModalidade(usuario, modalidadeId));
+            @RequestParam("modalidadeId") Long modalidadeId,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(metricaService.listarMetricasPorModalidade(usuario, modalidadeId, pageable)));
     }
 
     @PutMapping("/{id}")
