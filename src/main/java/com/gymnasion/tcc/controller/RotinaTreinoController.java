@@ -62,13 +62,15 @@ public class RotinaTreinoController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Excluir rotina de treino (US-12)", description = "Exclui uma rotina de treino do Personal Trainer.")
+    @Operation(summary = "Excluir rotina de treino (US-12)", description = "Exclui uma rotina de treino sem histórico de execução do Personal Trainer. Rotinas com sessões executadas têm seu histórico protegido e não podem ser excluídas (devem ser encerradas via US-25).")
     @ApiResponse(responseCode = "200", description = "Rotina excluída com sucesso!")
+    @ApiResponse(responseCode = "404", description = "Rotina de treino não encontrada.")
+    @ApiResponse(responseCode = "422", description = "Não é possível excluir rotina com sessões já executadas (proteção de histórico).")
     public ResponseEntity<MensagemResponseDTO> excluirRotina(
             @AuthenticationPrincipal Usuario usuario,
             @PathVariable("id") UUID id) {
-        rotinaTreinoService.excluirRotina(usuario, id);
-        return ResponseEntity.ok(new MensagemResponseDTO("Rotina excluída com sucesso!"));
+        MensagemResponseDTO response = rotinaTreinoService.excluirRotina(usuario, id);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/alunos")

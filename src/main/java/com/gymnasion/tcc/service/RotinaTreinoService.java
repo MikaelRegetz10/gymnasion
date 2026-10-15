@@ -129,8 +129,35 @@ public class RotinaTreinoService {
         RotinaTreino rotina = rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaId, personal.getId())
                 .orElseThrow(() -> new NotFoundException("Rotina de treino não encontrada."));
 
+        // US-12 / Proteção de histórico: impede a exclusão física se houver sessões já executadas
+        List<SessaoTreino> sessoes = sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaId);
+        boolean possuiSessoesExecutadas = sessoes.stream().anyMatch(this::possuiHistoricoExecucao);
+
+        if (possuiSessoesExecutadas) {
+            throw new BusinessException("Não é possível excluir uma rotina de treino que já possui sessões executadas. Para finalizar a rotina preservando o histórico, utilize o encerramento.");
+        }
+
+        List<Aluno> alunosVinculados = rotina.getAlunos() != null ? new ArrayList<>(rotina.getAlunos()) : List.of();
+
         rotinaTreinoRepository.delete(rotina);
+
+        // Atualiza notificações caso houvesse pendências atreladas à rotina removida
+        if (acompanhamentoTreinoService != null) {
+            for (Aluno a : alunosVinculados) {
+                acompanhamentoTreinoService.sincronizarNotificacaoParaAluno(a);
+            }
+        }
+
         return new MensagemResponseDTO("Rotina excluída com sucesso!");
+    }
+
+    private boolean possuiHistoricoExecucao(SessaoTreino sessao) {
+        if (sessao == null) return false;
+        return sessao.getStatus() == StatusSessaoTreino.CONCLUIDA
+                || Boolean.TRUE.equals(sessao.getConcluidaAluno())
+                || Boolean.TRUE.equals(sessao.getValidadaPersonal())
+                || sessao.getDataReal() != null
+                || sessao.getDesempenho() != null;
     }
 
     // =========================================================================
