@@ -1,6 +1,7 @@
 package com.gymnasion.tcc.infra;
 
 import com.gymnasion.tcc.exceptions.BusinessException;
+import com.gymnasion.tcc.exceptions.ContaBloqueadaException;
 import com.gymnasion.tcc.exceptions.DuplicateResourceException;
 import com.gymnasion.tcc.exceptions.MetricasInvalidasException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
@@ -122,6 +123,20 @@ public class RestExceptionHandler {
         problemDetail.setType(URI.create("https://api.gymnasion.com/errors/metricas-invalidas"));
         problemDetail.setProperty("timestamp", Instant.now());
         problemDetail.setProperty("invalidFields", ex.getCamposInvalidos());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(ContaBloqueadaException.class)
+    public ProblemDetail handleContaBloqueadaException(ContaBloqueadaException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Conta Bloqueada");
+        problemDetail.setType(URI.create("https://api.gymnasion.com/errors/conta-bloqueada"));
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("tentativas", ex.getTentativas());
+        problemDetail.setProperty("minutosBloqueio", ex.getMinutosBloqueio());
         return problemDetail;
     }
 
