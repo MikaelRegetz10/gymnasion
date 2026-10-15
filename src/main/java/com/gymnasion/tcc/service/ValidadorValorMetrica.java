@@ -28,8 +28,12 @@ public final class ValidadorValorMetrica {
      */
     public static String validar(Metrica metrica, String valor) {
         String titulo = metrica.getTitulo();
+        if (valor == null || valor.isBlank()) {
+            return "Valor inválido para a métrica '" + titulo + "'. Verifique o formato esperado: o valor não pode estar em branco.";
+        }
+
         if (valor.length() > TAMANHO_MAXIMO_VALOR_METRICA) {
-            return "O valor da métrica '" + titulo + "' deve ter no máximo " + TAMANHO_MAXIMO_VALOR_METRICA + " caracteres.";
+            return "Valor inválido para a métrica '" + titulo + "'. Verifique o formato esperado: o valor deve ter no máximo " + TAMANHO_MAXIMO_VALOR_METRICA + " caracteres.";
         }
 
         return switch (metrica.getTipo()) {
@@ -38,20 +42,20 @@ public final class ValidadorValorMetrica {
                     new BigDecimal(valor.replace(',', '.'));
                     yield null;
                 } catch (NumberFormatException e) {
-                    yield "O valor da métrica '" + titulo + "' deve ser numérico.";
+                    yield "Valor inválido para a métrica '" + titulo + "'. Verifique o formato esperado: deve ser numérico.";
                 }
             }
             case TEMPO -> FORMATO_TEMPO.matcher(valor).matches()
                     ? null
-                    : "O valor da métrica '" + titulo + "' deve estar no formato mm:ss.";
+                    : "Valor inválido para a métrica '" + titulo + "'. Verifique o formato esperado: deve estar no formato mm:ss.";
             case FREQUENCIA_CARDIACA -> {
                 try {
                     int bpm = Integer.parseInt(valor);
                     yield bpm >= FREQUENCIA_CARDIACA_MINIMA && bpm <= FREQUENCIA_CARDIACA_MAXIMA
                             ? null
-                            : "O valor da métrica '" + titulo + "' deve estar entre " + FREQUENCIA_CARDIACA_MINIMA + " e " + FREQUENCIA_CARDIACA_MAXIMA + " bpm.";
+                            : "Valor inválido para a métrica '" + titulo + "'. Verifique o formato esperado: deve estar entre " + FREQUENCIA_CARDIACA_MINIMA + " e " + FREQUENCIA_CARDIACA_MAXIMA + " bpm.";
                 } catch (NumberFormatException e) {
-                    yield "O valor da métrica '" + titulo + "' deve ser um número inteiro de batimentos por minuto (bpm).";
+                    yield "Valor inválido para a métrica '" + titulo + "'. Verifique o formato esperado: deve ser um número inteiro de batimentos por minuto (bpm).";
                 }
             }
             case TEXTO -> null;

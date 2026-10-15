@@ -48,9 +48,9 @@ public class AlunoRotinaController {
     }
 
     @PostMapping("/sessoes/{sessaoId}/execucao")
-    @Operation(summary = "Registrar execução e confirmar conclusão do treino pelo aluno (US-10 C3, C4, C5 / US-22)", description = "Aluno registra a data real de execução (preservando a planejada), RPE e métricas permitidas, confirmando a conclusão da sessão. Métricas obrigatórias do aluno devem ser informadas; opcionais podem ser omitidas e as exclusivas do personal ficam pendentes. Após a confirmação, o registro não pode ser alterado pelo aluno.")
+    @Operation(summary = "Registrar execução e confirmar conclusão do treino pelo aluno (US-10 / US-13 / US-22 / RN-015)", description = "Aluno registra a data real de execução (preservando a planejada), RPE e métricas permitidas, confirmando a conclusão da sessão. Valida os tipos de dados conforme RN-015 (US-13 C2 / US-22 C9). Métricas obrigatórias do aluno devem ser informadas; opcionais podem ser omitidas e as exclusivas do personal ficam pendentes. Após a confirmação, o registro não pode ser alterado pelo aluno.")
     @ApiResponse(responseCode = "200", description = "Execução registrada e sessão concluída com sucesso.")
-    @ApiResponse(responseCode = "422", description = "Sessão já confirmada (correções via US-23), métricas obrigatórias não preenchidas ou valores inválidos para o tipo configurado.")
+    @ApiResponse(responseCode = "422", description = "Sessão já confirmada (correções via US-23), métricas obrigatórias não preenchidas ou valores inválidos para o tipo configurado (RN-015 / US-13 C2 / US-22 C9).")
     public ResponseEntity<SessaoTreinoResponseDTO> registrarExecucao(
             @AuthenticationPrincipal Usuario usuario,
             @PathVariable("sessaoId") UUID sessaoId,
