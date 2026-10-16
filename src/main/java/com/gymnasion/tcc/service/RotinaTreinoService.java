@@ -38,6 +38,7 @@ public class RotinaTreinoService {
     private final AcompanhamentoTreinoService acompanhamentoTreinoService;
     private final NotificacaoService notificacaoService;
     private final AuditoriaDesempenhoRepository auditoriaDesempenhoRepository;
+    private final TurmaRepository turmaRepository;
 
     @Transactional
     public RotinaTreinoResponseDTO criarRotinaTreino(Usuario usuario, CriarRotinaTreinoRequestDTO dto) {
@@ -135,6 +136,15 @@ public class RotinaTreinoService {
     }
 
     @Transactional(readOnly = true)
+    public Page<RotinaTreinoResponseDTO> listarMinhasRotinas(Usuario usuario, Pageable pageable) {
+        Aluno aluno = alunoRepository.findByUsuario(usuario)
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+        return rotinaTreinoRepository.findByAlunosId(aluno.getId(), pageable)
+                .map(this::toResponseDTO);
+    }
+
+
+    @Transactional(readOnly = true)
     public RotinaTreinoResponseDTO buscarPorId(Usuario usuario, UUID rotinaId) {
         PersonalTrainer personal = obterPersonalLogado(usuario);
         RotinaTreino rotina = rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaId, personal.getId())
@@ -222,6 +232,67 @@ public class RotinaTreinoService {
             rotina.getAlunos().add(aluno);
         }
 
+        rotina = rotinaTreinoRepository.save(rotina);
+
+        // US-24 C4: Notificação sincronizada ao vincular alunos
+        if (acompanhamentoTreinoService != null && rotina.getAlunos() != null) {
+            for (Aluno a : rotina.getAlunos()) {
+                acompanhamentoTreinoService.sincronizarNotificacaoParaAluno(a);
+            }
+        }
+
+        return toResponseDTO(rotina);
+    }
+
+    @Transactional
+    public RotinaTreinoResponseDTO vincularTurma(Usuario usuario, UUID rotinaId, UUID turmaId) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        RotinaTreino rotina = rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaId, personal.getId())
+                .orElseThrow(() -> new NotFoundException("Rotina de treino não encontrada."));
+
+        if (Boolean.FALSE.equals(rotina.getAtivo())) {
+            throw new BusinessException("Não é possível vincular alunos a uma rotina de treino encerrada/inativa.");
+        }
+
+        Turma turma = turmaRepository.findByIdAndPersonalId(turmaId, personal.getId())
+                .orElseThrow(() -> new NotFoundException("Turma não encontrada."));
+
+        if (rotina.getModalidade() == null || turma.getModalidade() == null
+                || !rotina.getModalidade().getId().equals(turma.getModalidade().getId())) {
+            throw new BusinessException("A modalidade da turma deve ser a mesma da rotina de treino.");
+        }
+
+        if (turma.getAlunos() == null || turma.getAlunos().isEmpty()) {
+            throw new BusinessException("É necessário selecionar pelo menos 1 (um) aluno.");
+        }
+
+        Set<Aluno> novosAlunos = new HashSet<>();
+        for (Aluno aluno : turma.getAlunos()) {
+            // RN-014: Aluno inativo
+            if (aluno.getStatus() == StatusConvite.INATIVO) {
+                throw new BusinessException("Erro. Este aluno está inativo.");
+            }
+
+            // Ignora alunos da turma que já estão vinculados a esta mesma rotina (a menos que todos já estejam)
+            boolean jaVinculado = rotina.getAlunos().stream().anyMatch(a -> a.getId().equals(aluno.getId()));
+            if (jaVinculado) {
+                continue;
+            }
+
+            // Trava de 1 rotina ativa (US-11 / US-25 C6)
+            if (rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno.getId(), rotina.getId())) {
+                String nome = aluno.getUsuario() != null ? aluno.getUsuario().getNome() : "selecionado";
+                throw new BusinessException("O aluno " + nome + " já possui uma rotina de treino ativa. A rotina atual precisa ser encerrada antes.");
+            }
+
+            novosAlunos.add(aluno);
+        }
+
+        if (novosAlunos.isEmpty()) {
+            throw new BusinessException("Esse aluno já possui o treino vinculado.");
+        }
+
+        rotina.getAlunos().addAll(novosAlunos);
         rotina = rotinaTreinoRepository.save(rotina);
 
         // US-24 C4: Notificação sincronizada ao vincular alunos
@@ -417,6 +488,10 @@ public class RotinaTreinoService {
         RotinaTreino rotina = rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaId, personal.getId())
                 .orElseThrow(() -> new NotFoundException("Rotina de treino não encontrada."));
 
+        if (Boolean.FALSE.equals(rotina.getAtivo())) {
+            throw new BusinessException("Não é possível adicionar sessões a uma rotina de treino já encerrada.");
+        }
+
         SessaoTreino sessao = SessaoTreino.builder()
                 .rotinaTreino(rotina)
                 .semana(dto.semana())
@@ -529,6 +604,14 @@ public class RotinaTreinoService {
                 .map(SessaoTreino::getSemana)
                 .reduce((first, second) -> second)
                 .orElse(comData.get(0).getSemana());
+    }
+
+    @Transactional(readOnly = true)
+    public SessaoTreinoResponseDTO consultarSessao(Usuario usuario, UUID sessaoId) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        SessaoTreino sessao = sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personal.getId())
+                .orElseThrow(() -> new NotFoundException("Sessão de treino não encontrada para este Personal Trainer."));
+        return toSessaoResponseDTO(sessao);
     }
 
     @Transactional
@@ -864,6 +947,7 @@ public class RotinaTreinoService {
                     d.getRegistradoPor(),
                     d.getAluno() != null ? d.getAluno().getId() : null,
                     d.getAluno() != null && d.getAluno().getUsuario() != null ? d.getAluno().getUsuario().getNome() : null,
+                    d.getObservacoes(),
                     metricasDTO
             );
         }

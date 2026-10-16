@@ -29,6 +29,14 @@ public class AlunoRotinaController {
 
     private final RotinaTreinoService rotinaTreinoService;
 
+    @GetMapping
+    @Operation(summary = "Listar rotinas do aluno autenticado", description = "Retorna a listagem paginada de rotinas vinculadas ao aluno logado.")
+    public ResponseEntity<PageResponseDTO<RotinaTreinoResponseDTO>> listarMinhasRotinas(
+            @AuthenticationPrincipal Usuario usuario,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(rotinaTreinoService.listarMinhasRotinas(usuario, pageable)));
+    }
+
     @GetMapping("/{id}/planejamento")
     @Operation(summary = "Consultar planejamento da rotina pelo aluno (US-10 C1 / US-21)", description = "Permite ao aluno visualizar o planejamento de treinos por semanas.")
     public ResponseEntity<PlanejamentoRotinaResponseDTO> consultarPlanejamento(

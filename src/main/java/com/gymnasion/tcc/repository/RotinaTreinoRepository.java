@@ -23,6 +23,10 @@ public interface RotinaTreinoRepository extends JpaRepository<RotinaTreino, UUID
 
     Page<RotinaTreino> findByPersonalTrainerIdAndAlunosId(UUID personalTrainerId, UUID alunoId, Pageable pageable);
 
+    Page<RotinaTreino> findByAlunosId(UUID alunoId, Pageable pageable);
+
+    List<RotinaTreino> findByAlunosId(UUID alunoId);
+
     Optional<RotinaTreino> findByIdAndPersonalTrainerId(UUID id, UUID personalTrainerId);
 
     @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END FROM RotinaTreino r JOIN r.alunos a WHERE a.id = :alunoId AND r.ativo = true")

@@ -2,6 +2,7 @@ package com.gymnasion.tcc.service;
 
 import com.gymnasion.tcc.domain.*;
 import com.gymnasion.tcc.domain.enums.Role;
+import com.gymnasion.tcc.domain.enums.StatusConvite;
 import com.gymnasion.tcc.domain.enums.StatusSessaoTreino;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
@@ -59,6 +60,9 @@ class RotinaTreinoServiceTest {
 
     @Mock
     private AuditoriaDesempenhoRepository auditoriaDesempenhoRepository;
+
+    @Mock
+    private TurmaRepository turmaRepository;
 
     @InjectMocks
 
@@ -2053,5 +2057,334 @@ class RotinaTreinoServiceTest {
         assertThat(desempenho.getRegistrosMetricas().get(0).getValor()).isEqualTo("30");
         verify(sessaoTreinoRepository, never()).save(any(SessaoTreino.class));
         verify(auditoriaDesempenhoRepository, never()).saveAll(anyList());
+    }
+
+    // =========================================================================
+    // US-06 / US-11: Vincular turma à rotina de treino
+    // =========================================================================
+
+    @Test
+    @DisplayName("US06/US11 Vincular turma com sucesso: vincula todos os alunos ativos da turma à rotina")
+    void US11_vincularTurma_sucesso() {
+        Usuario usuarioAluno2 = Usuario.builder()
+                .id(UUID.randomUUID())
+                .email("aluno2@gymnasion.com")
+                .nome("Aluno Pedro")
+                .role(Role.ALUNO)
+                .build();
+        Aluno aluno2 = Aluno.builder()
+                .id(UUID.randomUUID())
+                .usuario(usuarioAluno2)
+                .personal(personalTrainer)
+                .status(StatusConvite.ATIVO)
+                .build();
+
+        RotinaTreino rotinaSemAlunos = RotinaTreino.builder()
+                .id(UUID.randomUUID())
+                .titulo("Rotina Turma Natação")
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .frequenciaSemanal(3)
+                .ativo(true)
+                .alunos(new HashSet<>())
+                .metricas(new HashSet<>(Set.of(metrica1)))
+                .build();
+
+        Turma turma = Turma.builder()
+                .id(UUID.randomUUID())
+                .nome("Turma Manhã")
+                .personal(personalTrainer)
+                .modalidade(modalidade)
+                .alunos(new HashSet<>(Set.of(aluno, aluno2)))
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaSemAlunos.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaSemAlunos));
+        when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(turma));
+        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno.getId(), rotinaSemAlunos.getId()))
+                .thenReturn(false);
+        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno2.getId(), rotinaSemAlunos.getId()))
+                .thenReturn(false);
+        when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(i -> i.getArgument(0));
+
+        RotinaTreinoResponseDTO response = rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaSemAlunos.getId(), turma.getId());
+
+        assertThat(response).isNotNull();
+        assertThat(response.alunos()).hasSize(2);
+        assertThat(response.alunos()).extracting(RotinaTreinoResponseDTO.AlunoResumoDTO::id)
+                .containsExactlyInAnyOrder(aluno.getId(), aluno2.getId());
+    }
+
+    @Test
+    @DisplayName("US06/US11 Vincular turma: ignora aluno já vinculado a esta mesma rotina e vincula os demais")
+    void US11_vincularTurma_ignoraAlunoJaVinculadoQuandoHaOutroElegivel() {
+        Usuario usuarioAluno2 = Usuario.builder()
+                .id(UUID.randomUUID())
+                .email("aluno2@gymnasion.com")
+                .nome("Aluno Pedro")
+                .role(Role.ALUNO)
+                .build();
+        Aluno aluno2 = Aluno.builder()
+                .id(UUID.randomUUID())
+                .usuario(usuarioAluno2)
+                .personal(personalTrainer)
+                .status(StatusConvite.ATIVO)
+                .build();
+
+        Turma turma = Turma.builder()
+                .id(UUID.randomUUID())
+                .nome("Turma Manhã")
+                .personal(personalTrainer)
+                .modalidade(modalidade)
+                .alunos(new HashSet<>(Set.of(aluno, aluno2)))
+                .build();
+
+        // rotinaTreino já possui `aluno` vinculado no setUp
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(turma));
+        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno2.getId(), rotinaTreino.getId()))
+                .thenReturn(false);
+        when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(i -> i.getArgument(0));
+
+        RotinaTreinoResponseDTO response = rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaTreino.getId(), turma.getId());
+
+        assertThat(response).isNotNull();
+        assertThat(response.alunos()).hasSize(2);
+        assertThat(response.alunos()).extracting(RotinaTreinoResponseDTO.AlunoResumoDTO::id)
+                .containsExactlyInAnyOrder(aluno.getId(), aluno2.getId());
+    }
+
+    @Test
+    @DisplayName("US06/US11 Cenário 2: Bloqueia quando todos os alunos da turma já estão vinculados a esta rotina")
+    void US11_vincularTurma_todosAlunosJaVinculadosBloqueado() {
+        Turma turma = Turma.builder()
+                .id(UUID.randomUUID())
+                .nome("Turma Manhã")
+                .personal(personalTrainer)
+                .modalidade(modalidade)
+                .alunos(new HashSet<>(Set.of(aluno)))
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(turma));
+
+        assertThatThrownBy(() -> rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaTreino.getId(), turma.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Esse aluno já possui o treino vinculado.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    @Test
+    @DisplayName("US06/US11 RN-014: Bloqueia vinculação de turma se algum aluno estiver inativo")
+    void US11_vincularTurma_alunoInativoBloqueado() {
+        Aluno alunoInativo = Aluno.builder()
+                .id(UUID.randomUUID())
+                .personal(personalTrainer)
+                .status(StatusConvite.INATIVO)
+                .build();
+
+        Turma turma = Turma.builder()
+                .id(UUID.randomUUID())
+                .nome("Turma Mista")
+                .personal(personalTrainer)
+                .modalidade(modalidade)
+                .alunos(new HashSet<>(Set.of(alunoInativo)))
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(turma));
+
+        assertThatThrownBy(() -> rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaTreino.getId(), turma.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Erro. Este aluno está inativo.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    @Test
+    @DisplayName("US06/US11 Trava 1 Rotina Ativa: Bloqueia vinculação de turma se algum aluno já tiver outra rotina ativa")
+    void US11_vincularTurma_alunoComOutraRotinaAtivaBloqueado() {
+        Usuario usuarioAluno2 = Usuario.builder()
+                .id(UUID.randomUUID())
+                .email("aluno2@gymnasion.com")
+                .nome("Aluno Pedro")
+                .role(Role.ALUNO)
+                .build();
+        Aluno aluno2 = Aluno.builder()
+                .id(UUID.randomUUID())
+                .usuario(usuarioAluno2)
+                .personal(personalTrainer)
+                .status(StatusConvite.ATIVO)
+                .build();
+
+        Turma turma = Turma.builder()
+                .id(UUID.randomUUID())
+                .nome("Turma Manhã")
+                .personal(personalTrainer)
+                .modalidade(modalidade)
+                .alunos(new HashSet<>(Set.of(aluno2)))
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(turma));
+        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno2.getId(), rotinaTreino.getId()))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaTreino.getId(), turma.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("O aluno Aluno Pedro já possui uma rotina de treino ativa. A rotina atual precisa ser encerrada antes.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    @Test
+    @DisplayName("US06/US11 Modalidade incompatível: Bloqueia vinculação se a modalidade da turma divergir da rotina")
+    void US11_vincularTurma_modalidadeIncompativelBloqueado() {
+        Modalidade outraModalidade = Modalidade.builder()
+                .id(99L)
+                .nome("Tênis")
+                .build();
+
+        Turma turmaOutraModalidade = Turma.builder()
+                .id(UUID.randomUUID())
+                .nome("Turma Tênis")
+                .personal(personalTrainer)
+                .modalidade(outraModalidade)
+                .alunos(new HashSet<>(Set.of(aluno)))
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(turmaRepository.findByIdAndPersonalId(turmaOutraModalidade.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(turmaOutraModalidade));
+
+        assertThatThrownBy(() -> rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaTreino.getId(), turmaOutraModalidade.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A modalidade da turma deve ser a mesma da rotina de treino.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    @Test
+    @DisplayName("listarMinhasRotinas: Aluno autenticado lista suas próprias rotinas com paginação")
+    void listarMinhasRotinas_alunoAutenticado() {
+        Usuario usuarioAluno = Usuario.builder()
+                .id(UUID.randomUUID())
+                .role(Role.ALUNO)
+                .nome("Aluno João")
+                .build();
+        Aluno alunoEntity = Aluno.builder()
+                .id(UUID.randomUUID())
+                .usuario(usuarioAluno)
+                .build();
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<RotinaTreino> pageMock = new org.springframework.data.domain.PageImpl<>(List.of(rotinaTreino), pageable, 1);
+
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(alunoEntity));
+        when(rotinaTreinoRepository.findByAlunosId(alunoEntity.getId(), pageable)).thenReturn(pageMock);
+
+        org.springframework.data.domain.Page<RotinaTreinoResponseDTO> response = rotinaTreinoService.listarMinhasRotinas(usuarioAluno, pageable);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).id()).isEqualTo(rotinaTreino.getId());
+    }
+
+    @Test
+    @DisplayName("Consultar sessão de treino pelo ID pelo personal responsável")
+    void consultarSessao_sucesso() {
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(3)
+                .dataPlanejada(LocalDate.now())
+                .status(StatusSessaoTreino.PLANEJADA)
+                .duracao(45)
+                .atividades("Aquecimento e tiro de 100m")
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessao));
+
+        SessaoTreinoResponseDTO response = rotinaTreinoService.consultarSessao(usuarioPersonal, sessaoId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isEqualTo(sessaoId);
+        assertThat(response.semana()).isEqualTo(3);
+        assertThat(response.duracao()).isEqualTo(45);
+        assertThat(response.atividades()).isEqualTo("Aquecimento e tiro de 100m");
+    }
+
+    @Test
+    @DisplayName("US09_cenario5_adicionar_sessao_planejamento_rotina_sucesso")
+    void adicionarSessao_sucesso() {
+        UUID sessaoId = UUID.randomUUID();
+        LocalDate dataPlanejada = LocalDate.now().plusDays(2);
+        CriarSessaoTreinoRequestDTO dto = new CriarSessaoTreinoRequestDTO(
+                1,
+                dataPlanejada,
+                50,
+                "Recuperação ativa\nAquecimento: 300m livre\nEducativos: 4x50m pernada"
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(sessaoTreinoRepository.save(any(SessaoTreino.class))).thenAnswer(inv -> {
+            SessaoTreino s = inv.getArgument(0);
+            s.setId(sessaoId);
+            return s;
+        });
+
+        SessaoTreinoResponseDTO response = rotinaTreinoService.adicionarSessao(usuarioPersonal, rotinaTreino.getId(), dto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isEqualTo(sessaoId);
+        assertThat(response.rotinaTreinoId()).isEqualTo(rotinaTreino.getId());
+        assertThat(response.semana()).isEqualTo(1);
+        assertThat(response.dataPlanejada()).isEqualTo(dataPlanejada);
+        assertThat(response.duracao()).isEqualTo(50);
+        assertThat(response.status()).isEqualTo(StatusSessaoTreino.PLANEJADA);
+        assertThat(response.concluidaAluno()).isFalse();
+        assertThat(response.validadaPersonal()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Impedir adicionar sessão em rotina já encerrada")
+    void adicionarSessao_rotinaEncerrada_deveLancarExcecao() {
+        rotinaTreino.setAtivo(false);
+        CriarSessaoTreinoRequestDTO dto = new CriarSessaoTreinoRequestDTO(
+                1,
+                LocalDate.now().plusDays(2),
+                45,
+                "Treino A"
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+
+        assertThatThrownBy(() -> rotinaTreinoService.adicionarSessao(usuarioPersonal, rotinaTreino.getId(), dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Não é possível adicionar sessões a uma rotina de treino já encerrada.");
     }
 }
