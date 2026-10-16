@@ -5,6 +5,7 @@ import com.gymnasion.tcc.exceptions.ContaBloqueadaException;
 import com.gymnasion.tcc.exceptions.DuplicateResourceException;
 import com.gymnasion.tcc.exceptions.MetricasInvalidasException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
+import com.gymnasion.tcc.exceptions.RelatorioSemDadosException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -16,7 +17,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -137,6 +140,27 @@ public class RestExceptionHandler {
         problemDetail.setProperty("timestamp", Instant.now());
         problemDetail.setProperty("tentativas", ex.getTentativas());
         problemDetail.setProperty("minutosBloqueio", ex.getMinutosBloqueio());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(RelatorioSemDadosException.class)
+    public ProblemDetail handleRelatorioSemDadosException(RelatorioSemDadosException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ex.getMessage()
+        );
+        problemDetail.setTitle("Período Sem Dados");
+        problemDetail.setType(URI.create("https://api.gymnasion.com/errors/relatorio-sem-dados"));
+        problemDetail.setProperty("timestamp", Instant.now());
+
+        // US-16 C3: intervalo alternativo com registros, exibido no modal do front-end
+        Map<String, LocalDate> periodoSugerido = null;
+        if (ex.possuiPeriodoSugerido()) {
+            periodoSugerido = new LinkedHashMap<>();
+            periodoSugerido.put("dataInicio", ex.getDataInicioSugerida());
+            periodoSugerido.put("dataFim", ex.getDataFimSugerida());
+        }
+        problemDetail.setProperty("periodoSugerido", periodoSugerido);
         return problemDetail;
     }
 
