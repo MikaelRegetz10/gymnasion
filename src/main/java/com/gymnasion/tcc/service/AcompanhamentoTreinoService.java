@@ -8,6 +8,8 @@ import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.repository.*;
 import com.gymnasion.tcc.domain.enums.TipoNotificacao;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -161,6 +163,16 @@ public class AcompanhamentoTreinoService {
                 totalGeralPendencias,
                 itens
         );
+    }
+
+    @Transactional
+    public Page<NotificacaoResponseDTO> listarNotificacoes(Usuario usuario, Pageable pageable) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        // Atualiza pendências para garantir consistência
+        obterResumoPendencias(usuario);
+
+        return notificacaoRepository.findByUsuarioIdOrderByDataCriacaoDesc(personal.getUsuario().getId(), pageable)
+                .map(this::toNotificacaoResponseDTO);
     }
 
     @Transactional

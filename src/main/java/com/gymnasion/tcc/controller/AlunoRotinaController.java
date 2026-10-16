@@ -1,10 +1,7 @@
 package com.gymnasion.tcc.controller;
 
 import com.gymnasion.tcc.domain.Usuario;
-import com.gymnasion.tcc.dto.FormularioExecucaoResponseDTO;
-import com.gymnasion.tcc.dto.PlanejamentoRotinaResponseDTO;
-import com.gymnasion.tcc.dto.RegistrarExecucaoSessaoRequestDTO;
-import com.gymnasion.tcc.dto.SessaoTreinoResponseDTO;
+import com.gymnasion.tcc.dto.*;
 import com.gymnasion.tcc.service.RotinaTreinoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -12,12 +9,14 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -59,10 +58,11 @@ public class AlunoRotinaController {
     }
 
     @GetMapping("/{id}/historico")
-    @Operation(summary = "Consultar histórico de treinos realizados pelo aluno (US-10 C8 / US-21)", description = "Retorna os treinos executados da rotina com resultados.")
-    public ResponseEntity<List<SessaoTreinoResponseDTO>> consultarHistoricoRotina(
+    @Operation(summary = "Consultar histórico de treinos realizados pelo aluno (US-10 C8 / US-21)", description = "Retorna os treinos executados da rotina com resultados de forma paginada.")
+    public ResponseEntity<PageResponseDTO<SessaoTreinoResponseDTO>> consultarHistoricoRotina(
             @AuthenticationPrincipal Usuario usuario,
-            @PathVariable("id") UUID rotinaId) {
-        return ResponseEntity.ok(rotinaTreinoService.consultarHistoricoRotina(usuario, rotinaId));
+            @PathVariable("id") UUID rotinaId,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(rotinaTreinoService.consultarHistoricoRotina(usuario, rotinaId, pageable)));
     }
 }

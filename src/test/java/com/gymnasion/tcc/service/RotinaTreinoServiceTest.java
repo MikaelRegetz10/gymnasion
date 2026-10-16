@@ -639,6 +639,42 @@ class RotinaTreinoServiceTest {
     }
 
     @Test
+    @DisplayName("US10 / US19: Bloquear criação de rotina com métrica descontinuada")
+    void US10_US19_bloquearCriacaoRotinaComMetricaDescontinuada() {
+        Metrica metricaDescontinuada = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Tempo 100m Antigo")
+                .tipo(TipoMetrica.TEMPO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .ativo(false)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(modalidadeRepository.findById(modalidade.getId())).thenReturn(Optional.of(modalidade));
+        when(metricaRepository.findByPersonalTrainerIdAndModalidadeId(personalTrainer.getId(), modalidade.getId()))
+                .thenReturn(List.of(metricaDescontinuada));
+        when(metricaRepository.findByIdAndPersonalTrainerId(metricaDescontinuada.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(metricaDescontinuada));
+
+        CriarRotinaTreinoRequestDTO dto = new CriarRotinaTreinoRequestDTO(
+                "Nova Rotina com Métrica Inativa",
+                modalidade.getId(),
+                3,
+                "Objetivo",
+                Set.of(aluno.getId()),
+                Set.of(metricaDescontinuada.getId())
+        );
+
+        // Quando & Então: bloqueado por tentar associar métrica descontinuada
+        assertThatThrownBy(() -> rotinaTreinoService.criarRotinaTreino(usuarioPersonal, dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("está descontinuada e não pode ser vinculada a uma nova rotina.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    @Test
     @DisplayName("US11 Desvincular Aluno: Remove aluno com sucesso mantendo outros alunos")
     void US11_desvincularAlunoComSucesso() {
         // Dado: rotina com 2 alunos
@@ -1440,6 +1476,103 @@ class RotinaTreinoServiceTest {
                 .hasMessage("Esta rotina de treino já está encerrada.");
 
         verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    // =========================================================================
+    // US-12: Exclusão de Rotina de Treino (Lucas / Proteção de Histórico)
+    // =========================================================================
+
+    @Test
+    @DisplayName("US12 Cenários 1 e 2: Personal exclui com sucesso rotina de treino sem histórico de sessões executadas")
+    void US12_cenario1_e_2_excluirRotinaSemHistoricoComSucesso() {
+        SessaoTreino s1 = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 20))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaTreino.getId()))
+                .thenReturn(List.of(s1));
+
+        MensagemResponseDTO response = rotinaTreinoService.excluirRotina(usuarioPersonal, rotinaTreino.getId());
+
+        assertThat(response).isNotNull();
+        assertThat(response.mensagem()).isEqualTo("Rotina excluída com sucesso!");
+        verify(rotinaTreinoRepository).delete(rotinaTreino);
+    }
+
+    @Test
+    @DisplayName("US12 / Proteção de Histórico: Impede exclusão de rotina com sessão já concluída e orienta a encerrar")
+    void US12_protecaoHistorico_rotinaComSessaoConcluida_impedeExclusao() {
+        SessaoTreino sConcluida = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 10))
+                .dataReal(LocalDate.of(2026, 10, 10))
+                .status(StatusSessaoTreino.CONCLUIDA)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaTreino.getId()))
+                .thenReturn(List.of(sConcluida));
+
+        assertThatThrownBy(() -> rotinaTreinoService.excluirRotina(usuarioPersonal, rotinaTreino.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Não é possível excluir uma rotina de treino que já possui sessões executadas. Para finalizar a rotina preservando o histórico, utilize o encerramento.");
+
+        verify(rotinaTreinoRepository, never()).delete(any(RotinaTreino.class));
+    }
+
+    @Test
+    @DisplayName("US12 / Proteção de Histórico: Impede exclusão de rotina com desempenho registrado")
+    void US12_protecaoHistorico_rotinaComDesempenhoRegistrado_impedeExclusao() {
+        Desempenho desempenho = Desempenho.builder()
+                .id(UUID.randomUUID())
+                .registradoPor("ALUNO")
+                .build();
+
+        SessaoTreino sComDesempenho = SessaoTreino.builder()
+                .id(UUID.randomUUID())
+                .rotinaTreino(rotinaTreino)
+                .semana(1)
+                .dataPlanejada(LocalDate.of(2026, 10, 10))
+                .status(StatusSessaoTreino.PLANEJADA)
+                .desempenho(desempenho)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(sessaoTreinoRepository.findByRotinaTreinoIdOrderBySemanaAscDataPlanejadaAsc(rotinaTreino.getId()))
+                .thenReturn(List.of(sComDesempenho));
+
+        assertThatThrownBy(() -> rotinaTreinoService.excluirRotina(usuarioPersonal, rotinaTreino.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Não é possível excluir uma rotina de treino que já possui sessões executadas. Para finalizar a rotina preservando o histórico, utilize o encerramento.");
+
+        verify(rotinaTreinoRepository, never()).delete(any(RotinaTreino.class));
+    }
+
+    @Test
+    @DisplayName("US12: Tentar excluir rotina inexistente ou de outro treinador lança NotFoundException")
+    void US12_rotinaNaoEncontrada_lancaNotFoundException() {
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> rotinaTreinoService.excluirRotina(usuarioPersonal, rotinaTreino.getId()))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Rotina de treino não encontrada.");
+
+        verify(rotinaTreinoRepository, never()).delete(any(RotinaTreino.class));
     }
 
 

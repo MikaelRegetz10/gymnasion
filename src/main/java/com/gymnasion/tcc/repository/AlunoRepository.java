@@ -3,6 +3,8 @@ package com.gymnasion.tcc.repository;
 import com.gymnasion.tcc.domain.Aluno;
 import com.gymnasion.tcc.domain.PersonalTrainer;
 import com.gymnasion.tcc.domain.enums.StatusConvite;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,6 +24,14 @@ public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
             "WHERE p.id = :personalId AND a.status = :status")
     List<Aluno> findByPersonalIdAndStatus(@Param("personalId") UUID personalId, @Param("status") StatusConvite status);
 
+    @Query(value = "SELECT a FROM Aluno a " +
+            "JOIN FETCH a.usuario " +
+            "JOIN FETCH a.personal p " +
+            "JOIN FETCH p.usuario " +
+            "WHERE p.id = :personalId AND a.status = :status",
+            countQuery = "SELECT count(a) FROM Aluno a WHERE a.personal.id = :personalId AND a.status = :status")
+    Page<Aluno> findByPersonalIdAndStatus(@Param("personalId") UUID personalId, @Param("status") StatusConvite status, Pageable pageable);
+
     @Query("SELECT DISTINCT a FROM Aluno a " +
             "JOIN FETCH a.usuario " +
             "JOIN FETCH a.personal p " +
@@ -29,6 +39,14 @@ public interface AlunoRepository extends JpaRepository<Aluno, UUID> {
             "LEFT JOIN FETCH a.modalidades " +
             "WHERE p.id = :personalId")
     List<Aluno> findByPersonalId(@Param("personalId") UUID personalId);
+
+    @Query(value = "SELECT a FROM Aluno a " +
+            "JOIN FETCH a.usuario " +
+            "JOIN FETCH a.personal p " +
+            "JOIN FETCH p.usuario " +
+            "WHERE p.id = :personalId",
+            countQuery = "SELECT count(a) FROM Aluno a WHERE a.personal.id = :personalId")
+    Page<Aluno> findByPersonalId(@Param("personalId") UUID personalId, Pageable pageable);
 
     Optional<Aluno> findByIdAndPersonalId(UUID id, UUID personalId);
 

@@ -10,6 +10,9 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -42,21 +45,27 @@ public class PersonalTrainerController {
     }
 
     @GetMapping("/alunos")
-    @Operation(summary = "Listar todos os alunos vinculados (US-03)", description = "Retorna os alunos vinculados ao Personal Trainer autenticado.")
-    public ResponseEntity<List<AlunoResponseDTO>> getAlunos(@AuthenticationPrincipal Usuario usuario) {
-        return ResponseEntity.ok(alunoService.getAlunosVinculados(usuario));
+    @Operation(summary = "Listar todos os alunos vinculados (US-03)", description = "Retorna os alunos vinculados ao Personal Trainer autenticado de forma paginada.")
+    public ResponseEntity<PageResponseDTO<AlunoResponseDTO>> getAlunos(
+            @AuthenticationPrincipal Usuario usuario,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(alunoService.getAlunosVinculados(usuario, pageable)));
     }
 
     @GetMapping("/alunos/pendentes")
-    @Operation(summary = "Listar alunos com aprovação pendente (US-03)", description = "Retorna as solicitações de alunos que aguardam aprovação.")
-    public ResponseEntity<List<AlunoResponseDTO>> getAlunosPendentes(@AuthenticationPrincipal Usuario usuario) {
-        return ResponseEntity.ok(alunoService.getAlunosPendentes(usuario));
+    @Operation(summary = "Listar alunos com aprovação pendente (US-03)", description = "Retorna as solicitações de alunos que aguardam aprovação de forma paginada.")
+    public ResponseEntity<PageResponseDTO<AlunoResponseDTO>> getAlunosPendentes(
+            @AuthenticationPrincipal Usuario usuario,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(alunoService.getAlunosPendentes(usuario, pageable)));
     }
 
     @GetMapping("/alunos/inativos")
-    @Operation(summary = "Listar alunos inativos (US-05)", description = "Retorna os alunos desativados temporariamente.")
-    public ResponseEntity<List<AlunoResponseDTO>> getAlunosInativos(@AuthenticationPrincipal Usuario usuario) {
-        return ResponseEntity.ok(alunoService.getAlunosInativos(usuario));
+    @Operation(summary = "Listar alunos inativos (US-05)", description = "Retorna os alunos desativados temporariamente de forma paginada.")
+    public ResponseEntity<PageResponseDTO<AlunoResponseDTO>> getAlunosInativos(
+            @AuthenticationPrincipal Usuario usuario,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(alunoService.getAlunosInativos(usuario, pageable)));
     }
 
     @PatchMapping("/alunos/{alunoId}/aprovar")
@@ -106,11 +115,12 @@ public class PersonalTrainerController {
     }
 
     @GetMapping("/alunos/{alunoId}/observacoes-feedbacks")
-    @Operation(summary = "Consultar histórico de observações e feedbacks do aluno (US-26 C1, C4)", description = "Retorna o histórico de observações do aluno e feedbacks do personal em ordem cronológica decrescente.")
+    @Operation(summary = "Consultar histórico de observações e feedbacks do aluno (US-26 C1, C4)", description = "Retorna o histórico de observações do aluno e feedbacks do personal em ordem cronológica decrescente de forma paginada.")
     @ApiResponse(responseCode = "200", description = "Histórico retornado com sucesso.")
-    public ResponseEntity<List<ObservacaoFeedbackResponseDTO>> listarObservacoesEFeedbacks(
+    public ResponseEntity<PageResponseDTO<ObservacaoFeedbackResponseDTO>> listarObservacoesEFeedbacks(
             @AuthenticationPrincipal Usuario usuario,
-            @PathVariable("alunoId") UUID alunoId) {
-        return ResponseEntity.ok(observacaoFeedbackService.listarObservacoesEFeedbacksPeloPersonal(usuario, alunoId));
+            @PathVariable("alunoId") UUID alunoId,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(observacaoFeedbackService.listarObservacoesEFeedbacksPeloPersonal(usuario, alunoId, pageable)));
     }
 }

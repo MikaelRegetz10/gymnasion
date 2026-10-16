@@ -15,7 +15,10 @@ import com.gymnasion.tcc.repository.MetricaRepository;
 import com.gymnasion.tcc.repository.ModalidadeRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
 import com.gymnasion.tcc.repository.RegistroMetricaRepository;
+import com.gymnasion.tcc.repository.RotinaTreinoRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,7 @@ public class MetricaService {
     private final ModalidadeRepository modalidadeRepository;
     private final PersonalTrainerRepository personalTrainerRepository;
     private final RegistroMetricaRepository registroMetricaRepository;
+    private final RotinaTreinoRepository rotinaTreinoRepository;
 
     @Transactional
     public MetricaResponseDTO criarMetrica(Usuario usuario, CriarMetricaRequestDTO dto) {
@@ -59,6 +63,17 @@ public class MetricaService {
         metrica = metricaRepository.save(metrica);
 
         return toResponseDTO(metrica, 0L);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<MetricaResponseDTO> listarMetricasPorModalidade(Usuario usuario, Long modalidadeId, Pageable pageable) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+
+        return metricaRepository.findByPersonalTrainerIdAndModalidadeId(personal.getId(), modalidadeId, pageable)
+                .map(metrica -> {
+                    Long qtdAlunos = registroMetricaRepository.countAlunosComRegistrosByMetricaId(metrica.getId());
+                    return toResponseDTO(metrica, qtdAlunos);
+                });
     }
 
     @Transactional(readOnly = true)
@@ -122,7 +137,8 @@ public class MetricaService {
         Metrica metrica = metricaRepository.findByIdAndPersonalTrainerId(metricaId, personal.getId())
                 .orElseThrow(() -> new NotFoundException("Métrica não encontrada ou não pertence a este Personal Trainer."));
 
-        boolean possuiHistorico = registroMetricaRepository.existsByMetricaId(metricaId);
+        boolean possuiHistorico = registroMetricaRepository.existsByMetricaId(metricaId)
+                || rotinaTreinoRepository.existsByMetricaId(metricaId);
 
         if (possuiHistorico) {
             metrica.setAtivo(false);

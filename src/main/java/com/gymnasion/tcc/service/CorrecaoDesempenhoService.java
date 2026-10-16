@@ -15,6 +15,8 @@ import com.gymnasion.tcc.repository.AuditoriaDesempenhoRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
 import com.gymnasion.tcc.repository.SessaoTreinoRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -153,24 +155,36 @@ public class CorrecaoDesempenhoService {
     }
 
     @Transactional(readOnly = true)
+    public Page<AuditoriaDesempenhoResponseDTO> consultarAuditoria(Usuario usuario, UUID sessaoId, Pageable pageable) {
+        // US-23 Cenário 5: Valores anteriores e novos disponíveis para consulta do histórico de alterações
+        SessaoTreino sessao = obterSessaoComDesempenhoDoPersonal(usuario, sessaoId);
+        return auditoriaDesempenhoRepository.findByDesempenhoIdOrderByDataHoraAsc(sessao.getDesempenho().getId(), pageable)
+                .map(this::toAuditoriaResponseDTO);
+    }
+
+    @Transactional(readOnly = true)
     public List<AuditoriaDesempenhoResponseDTO> consultarAuditoria(Usuario usuario, UUID sessaoId) {
         // US-23 Cenário 5: Valores anteriores e novos disponíveis para consulta do histórico de alterações
         SessaoTreino sessao = obterSessaoComDesempenhoDoPersonal(usuario, sessaoId);
         return auditoriaDesempenhoRepository.findByDesempenhoIdOrderByDataHoraAsc(sessao.getDesempenho().getId())
                 .stream()
-                .map(auditoria -> new AuditoriaDesempenhoResponseDTO(
-                        auditoria.getId(),
-                        auditoria.getTipoOperacao(),
-                        auditoria.getCampo(),
-                        auditoria.getMetrica() != null ? auditoria.getMetrica().getId() : null,
-                        auditoria.getMetrica() != null ? auditoria.getMetrica().getTitulo() : null,
-                        auditoria.getValorAnterior(),
-                        auditoria.getValorNovo(),
-                        auditoria.getUsuario().getId(),
-                        auditoria.getUsuario().getNome(),
-                        auditoria.getDataHora()
-                ))
+                .map(this::toAuditoriaResponseDTO)
                 .toList();
+    }
+
+    private AuditoriaDesempenhoResponseDTO toAuditoriaResponseDTO(AuditoriaDesempenho auditoria) {
+        return new AuditoriaDesempenhoResponseDTO(
+                auditoria.getId(),
+                auditoria.getTipoOperacao(),
+                auditoria.getCampo(),
+                auditoria.getMetrica() != null ? auditoria.getMetrica().getId() : null,
+                auditoria.getMetrica() != null ? auditoria.getMetrica().getTitulo() : null,
+                auditoria.getValorAnterior(),
+                auditoria.getValorNovo(),
+                auditoria.getUsuario().getId(),
+                auditoria.getUsuario().getNome(),
+                auditoria.getDataHora()
+        );
     }
 
     /**

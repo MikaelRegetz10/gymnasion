@@ -11,6 +11,8 @@ import com.gymnasion.tcc.dto.NotificacaoResponseDTO;
 import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.repository.NotificacaoRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -155,6 +157,12 @@ public class NotificacaoService {
     @Transactional(readOnly = true)
     public long contarNaoLidas(Usuario usuario) {
         return notificacaoRepository.countByUsuarioIdAndLidaFalse(usuario.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<NotificacaoResponseDTO> listarPorUsuario(Usuario usuario, Pageable pageable) {
+        return notificacaoRepository.findByUsuarioIdOrderByDataCriacaoDesc(usuario.getId(), pageable)
+                .map(this::toDTO);
     }
 
     @Transactional(readOnly = true)

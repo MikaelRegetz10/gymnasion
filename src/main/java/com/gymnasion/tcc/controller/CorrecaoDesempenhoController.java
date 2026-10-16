@@ -4,6 +4,7 @@ import com.gymnasion.tcc.domain.Usuario;
 import com.gymnasion.tcc.dto.AuditoriaDesempenhoResponseDTO;
 import com.gymnasion.tcc.dto.CorrigirDesempenhoRequestDTO;
 import com.gymnasion.tcc.dto.DesempenhoDetalheResponseDTO;
+import com.gymnasion.tcc.dto.PageResponseDTO;
 import com.gymnasion.tcc.service.CorrecaoDesempenhoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -11,12 +12,14 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -53,12 +56,13 @@ public class CorrecaoDesempenhoController {
     }
 
     @GetMapping("/auditoria")
-    @Operation(summary = "Consultar histórico de alterações do desempenho (US-23 C5)", description = "Retorna as inclusões e correções do registro, com valor anterior, novo valor, responsável e data/hora, em ordem cronológica.")
+    @Operation(summary = "Consultar histórico de alterações do desempenho (US-23 C5)", description = "Retorna as inclusões e correções do registro, com valor anterior, novo valor, responsável e data/hora, em ordem cronológica de forma paginada.")
     @ApiResponse(responseCode = "200", description = "Histórico de alterações retornado com sucesso.")
     @ApiResponse(responseCode = "404", description = "Sessão não encontrada para o personal responsável (US-23 C8).")
-    public ResponseEntity<List<AuditoriaDesempenhoResponseDTO>> consultarAuditoria(
+    public ResponseEntity<PageResponseDTO<AuditoriaDesempenhoResponseDTO>> consultarAuditoria(
             @AuthenticationPrincipal Usuario usuario,
-            @PathVariable("sessaoId") UUID sessaoId) {
-        return ResponseEntity.ok(correcaoDesempenhoService.consultarAuditoria(usuario, sessaoId));
+            @PathVariable("sessaoId") UUID sessaoId,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(PageResponseDTO.from(correcaoDesempenhoService.consultarAuditoria(usuario, sessaoId, pageable)));
     }
 }

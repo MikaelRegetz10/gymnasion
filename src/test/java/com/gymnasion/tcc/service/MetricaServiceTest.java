@@ -17,6 +17,7 @@ import com.gymnasion.tcc.repository.MetricaRepository;
 import com.gymnasion.tcc.repository.ModalidadeRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
 import com.gymnasion.tcc.repository.RegistroMetricaRepository;
+import com.gymnasion.tcc.repository.RotinaTreinoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,9 @@ class MetricaServiceTest {
 
     @Mock
     private RegistroMetricaRepository registroMetricaRepository;
+
+    @Mock
+    private RotinaTreinoRepository rotinaTreinoRepository;
 
     @InjectMocks
     private MetricaService metricaService;
@@ -348,6 +352,34 @@ class MetricaServiceTest {
     }
 
     @Test
+    @DisplayName("US19 Cenário 3 / RN-017: Excluir métrica vinculada a rotina sem execuções descontinua logicamente")
+    void US19_cenario3_excluirMetricaVinculadaARotinaDescontinua() {
+        UUID metricaId = UUID.randomUUID();
+        Metrica m = Metrica.builder()
+                .id(metricaId)
+                .titulo("Tempo 50m")
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .ativo(true)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioLogado)).thenReturn(Optional.of(personalTrainer));
+        when(metricaRepository.findByIdAndPersonalTrainerId(metricaId, personalTrainer.getId()))
+                .thenReturn(Optional.of(m));
+        when(registroMetricaRepository.existsByMetricaId(metricaId)).thenReturn(false);
+        when(rotinaTreinoRepository.existsByMetricaId(metricaId)).thenReturn(true);
+
+        // Quando: solicita exclusão
+        MensagemResponseDTO response = metricaService.excluirMetrica(metricaId, usuarioLogado);
+
+        // Então: marcado como inativo / descontinuado preservando a integridade da rotina
+        assertThat(m.getAtivo()).isFalse();
+        assertThat(response.mensagem()).contains("descontinuada com sucesso");
+        verify(metricaRepository, times(1)).save(m);
+        verify(metricaRepository, never()).delete(any(Metrica.class));
+    }
+
+    @Test
     @DisplayName("US19 Cenário 4: Excluir métrica sem histórico realiza exclusão física")
     void US19_cenario4_excluirSemHistoricoRemocaoFisica() {
         UUID metricaId = UUID.randomUUID();
@@ -363,6 +395,7 @@ class MetricaServiceTest {
         when(metricaRepository.findByIdAndPersonalTrainerId(metricaId, personalTrainer.getId()))
                 .thenReturn(Optional.of(m));
         when(registroMetricaRepository.existsByMetricaId(metricaId)).thenReturn(false);
+        when(rotinaTreinoRepository.existsByMetricaId(metricaId)).thenReturn(false);
 
         // Quando: solicita exclusão
         MensagemResponseDTO response = metricaService.excluirMetrica(metricaId, usuarioLogado);

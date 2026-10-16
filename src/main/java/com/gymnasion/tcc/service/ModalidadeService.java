@@ -7,6 +7,8 @@ import com.gymnasion.tcc.exceptions.DuplicateResourceException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.repository.ModalidadeRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,12 @@ import java.util.List;
 public class ModalidadeService {
 
     private final ModalidadeRepository modalidadeRepository;
+
+    @Transactional(readOnly = true)
+    public Page<ModalidadeResponseDTO> listarTodas(Pageable pageable) {
+        return modalidadeRepository.findAll(pageable)
+                .map(this::toDTO);
+    }
 
     @Transactional(readOnly = true)
     public List<ModalidadeResponseDTO> listarTodas() {

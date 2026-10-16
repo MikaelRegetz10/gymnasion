@@ -15,6 +15,8 @@ import com.gymnasion.tcc.repository.PersonalTrainerRepository;
 import com.gymnasion.tcc.event.SolicitacaoAlunoAvaliadaEvent;
 import lombok.AllArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +36,15 @@ public class AlunoService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
+    public Page<AlunoResponseDTO> getAlunosVinculados(Usuario usuario, org.springframework.data.domain.Pageable pageable) {
+        PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuario)
+                .orElseThrow(() -> new UsernameNotFoundException("Personal não encontrado!"));
+
+        return alunoRepository.findByPersonalId(personalTrainer.getId(), pageable)
+                .map(this::toAlunoResponseDTO);
+    }
+
+    @Transactional(readOnly = true)
     public List<AlunoResponseDTO> getAlunosVinculados(Usuario usuario) {
         PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuario)
                 .orElseThrow(() -> new UsernameNotFoundException("Personal não encontrado!"));
@@ -45,6 +56,15 @@ public class AlunoService {
     }
 
     @Transactional(readOnly = true)
+    public Page<AlunoResponseDTO> getAlunosInativos(Usuario usuarioLogado, org.springframework.data.domain.Pageable pageable) {
+        PersonalTrainer personal = personalTrainerRepository.getByUsuario(usuarioLogado)
+                .orElseThrow(() -> new UsernameNotFoundException("Personal Trainer não encontrado!"));
+
+        return alunoRepository.findByPersonalIdAndStatus(personal.getId(), StatusConvite.INATIVO, pageable)
+                .map(this::toAlunoResponseDTO);
+    }
+
+    @Transactional(readOnly = true)
     public List<AlunoResponseDTO> getAlunosInativos(Usuario usuarioLogado) {
         PersonalTrainer personal = personalTrainerRepository.getByUsuario(usuarioLogado)
                 .orElseThrow(() -> new UsernameNotFoundException("Personal Trainer não encontrado!"));
@@ -53,6 +73,15 @@ public class AlunoService {
                 .stream()
                 .map(this::toAlunoResponseDTO)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AlunoResponseDTO> getAlunosPendentes(Usuario usuario, org.springframework.data.domain.Pageable pageable) {
+        PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuario)
+                .orElseThrow(() -> new UsernameNotFoundException("Personal não encontrado!"));
+
+        return alunoRepository.findByPersonalIdAndStatus(personalTrainer.getId(), StatusConvite.PENDENTE, pageable)
+                .map(this::toAlunoResponseDTO);
     }
 
     @Transactional(readOnly = true)
