@@ -236,9 +236,12 @@ public class CorrecaoDesempenhoService {
         Map<UUID, String> valores = new HashMap<>();
         Map<UUID, Metrica> metricas = new LinkedHashMap<>();
         sessao.getRotinaTreino().getMetricas().forEach(metrica -> metricas.put(metrica.getId(), metrica));
-        for (RegistroMetrica registro : desempenho.getRegistrosMetricas()) {
-            valores.put(registro.getMetrica().getId(), registro.getValor());
-            metricas.putIfAbsent(registro.getMetrica().getId(), registro.getMetrica());
+
+        if (desempenho != null && desempenho.getRegistrosMetricas() != null) {
+            for (RegistroMetrica registro : desempenho.getRegistrosMetricas()) {
+                valores.put(registro.getMetrica().getId(), registro.getValor());
+                metricas.putIfAbsent(registro.getMetrica().getId(), registro.getMetrica());
+            }
         }
 
         // RN-017: Métrica descontinuada só aparece quando possui valor registrado
@@ -264,14 +267,14 @@ public class CorrecaoDesempenhoService {
                 })
                 .toList();
 
-        Aluno aluno = desempenho.getAluno();
+        Aluno aluno = desempenho != null ? desempenho.getAluno() : (sessao.getRotinaTreino().getAlunos() != null ? sessao.getRotinaTreino().getAlunos().stream().findFirst().orElse(null) : null);
         RotinaTreino rotina = sessao.getRotinaTreino();
         return new DesempenhoDetalheResponseDTO(
                 sessao.getId(),
                 rotina.getId(),
                 rotina.getTitulo(),
                 rotina.getModalidade() != null ? rotina.getModalidade().getNome() : null,
-                desempenho.getId(),
+                desempenho != null ? desempenho.getId() : null,
                 aluno != null ? aluno.getId() : null,
                 aluno != null && aluno.getUsuario() != null ? aluno.getUsuario().getNome() : null,
                 sessao.getSemana(),
@@ -282,10 +285,10 @@ public class CorrecaoDesempenhoService {
                 sessao.getStatus(),
                 sessao.getConcluidaAluno(),
                 sessao.getValidadaPersonal(),
-                desempenho.getNivelCansaco(),
-                desempenho.getRegistradoPor(),
-                desempenho.getDataRegistro(),
-                desempenho.getObservacoes(),
+                desempenho != null ? desempenho.getNivelCansaco() : null,
+                desempenho != null ? desempenho.getRegistradoPor() : null,
+                desempenho != null ? desempenho.getDataRegistro() : null,
+                desempenho != null ? desempenho.getObservacoes() : null,
                 metricasDTO
         );
     }
