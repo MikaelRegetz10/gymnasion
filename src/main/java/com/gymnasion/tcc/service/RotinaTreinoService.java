@@ -488,6 +488,10 @@ public class RotinaTreinoService {
         RotinaTreino rotina = rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaId, personal.getId())
                 .orElseThrow(() -> new NotFoundException("Rotina de treino não encontrada."));
 
+        if (Boolean.FALSE.equals(rotina.getAtivo())) {
+            throw new BusinessException("Não é possível adicionar sessões a uma rotina de treino já encerrada.");
+        }
+
         SessaoTreino sessao = SessaoTreino.builder()
                 .rotinaTreino(rotina)
                 .semana(dto.semana())

@@ -2333,5 +2333,58 @@ class RotinaTreinoServiceTest {
         assertThat(response.duracao()).isEqualTo(45);
         assertThat(response.atividades()).isEqualTo("Aquecimento e tiro de 100m");
     }
-}
 
+    @Test
+    @DisplayName("US09_cenario5_adicionar_sessao_planejamento_rotina_sucesso")
+    void adicionarSessao_sucesso() {
+        UUID sessaoId = UUID.randomUUID();
+        LocalDate dataPlanejada = LocalDate.now().plusDays(2);
+        CriarSessaoTreinoRequestDTO dto = new CriarSessaoTreinoRequestDTO(
+                1,
+                dataPlanejada,
+                50,
+                "Recuperação ativa\nAquecimento: 300m livre\nEducativos: 4x50m pernada"
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(sessaoTreinoRepository.save(any(SessaoTreino.class))).thenAnswer(inv -> {
+            SessaoTreino s = inv.getArgument(0);
+            s.setId(sessaoId);
+            return s;
+        });
+
+        SessaoTreinoResponseDTO response = rotinaTreinoService.adicionarSessao(usuarioPersonal, rotinaTreino.getId(), dto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isEqualTo(sessaoId);
+        assertThat(response.rotinaTreinoId()).isEqualTo(rotinaTreino.getId());
+        assertThat(response.semana()).isEqualTo(1);
+        assertThat(response.dataPlanejada()).isEqualTo(dataPlanejada);
+        assertThat(response.duracao()).isEqualTo(50);
+        assertThat(response.status()).isEqualTo(StatusSessaoTreino.PLANEJADA);
+        assertThat(response.concluidaAluno()).isFalse();
+        assertThat(response.validadaPersonal()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Impedir adicionar sessão em rotina já encerrada")
+    void adicionarSessao_rotinaEncerrada_deveLancarExcecao() {
+        rotinaTreino.setAtivo(false);
+        CriarSessaoTreinoRequestDTO dto = new CriarSessaoTreinoRequestDTO(
+                1,
+                LocalDate.now().plusDays(2),
+                45,
+                "Treino A"
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+
+        assertThatThrownBy(() -> rotinaTreinoService.adicionarSessao(usuarioPersonal, rotinaTreino.getId(), dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Não é possível adicionar sessões a uma rotina de treino já encerrada.");
+    }
+}
