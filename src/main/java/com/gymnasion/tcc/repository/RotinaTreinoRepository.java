@@ -30,4 +30,7 @@ public interface RotinaTreinoRepository extends JpaRepository<RotinaTreino, UUID
 
     @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END FROM RotinaTreino r JOIN r.alunos a WHERE a.id = :alunoId AND r.ativo = true AND r.id <> :rotinaId")
     boolean existsByAlunoIdAndAtivoTrueAndIdNot(@Param("alunoId") UUID alunoId, @Param("rotinaId") UUID rotinaId);
+
+    @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END FROM RotinaTreino r JOIN r.metricas m WHERE m.id = :metricaId")
+    boolean existsByMetricaId(@Param("metricaId") UUID metricaId);
 }

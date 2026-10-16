@@ -639,6 +639,42 @@ class RotinaTreinoServiceTest {
     }
 
     @Test
+    @DisplayName("US10 / US19: Bloquear criação de rotina com métrica descontinuada")
+    void US10_US19_bloquearCriacaoRotinaComMetricaDescontinuada() {
+        Metrica metricaDescontinuada = Metrica.builder()
+                .id(UUID.randomUUID())
+                .titulo("Tempo 100m Antigo")
+                .tipo(TipoMetrica.TEMPO)
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .ativo(false)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(modalidadeRepository.findById(modalidade.getId())).thenReturn(Optional.of(modalidade));
+        when(metricaRepository.findByPersonalTrainerIdAndModalidadeId(personalTrainer.getId(), modalidade.getId()))
+                .thenReturn(List.of(metricaDescontinuada));
+        when(metricaRepository.findByIdAndPersonalTrainerId(metricaDescontinuada.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(metricaDescontinuada));
+
+        CriarRotinaTreinoRequestDTO dto = new CriarRotinaTreinoRequestDTO(
+                "Nova Rotina com Métrica Inativa",
+                modalidade.getId(),
+                3,
+                "Objetivo",
+                Set.of(aluno.getId()),
+                Set.of(metricaDescontinuada.getId())
+        );
+
+        // Quando & Então: bloqueado por tentar associar métrica descontinuada
+        assertThatThrownBy(() -> rotinaTreinoService.criarRotinaTreino(usuarioPersonal, dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("está descontinuada e não pode ser vinculada a uma nova rotina.");
+
+        verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
+    }
+
+    @Test
     @DisplayName("US11 Desvincular Aluno: Remove aluno com sucesso mantendo outros alunos")
     void US11_desvincularAlunoComSucesso() {
         // Dado: rotina com 2 alunos

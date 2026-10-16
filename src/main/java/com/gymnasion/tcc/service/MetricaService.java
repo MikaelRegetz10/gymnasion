@@ -15,6 +15,7 @@ import com.gymnasion.tcc.repository.MetricaRepository;
 import com.gymnasion.tcc.repository.ModalidadeRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
 import com.gymnasion.tcc.repository.RegistroMetricaRepository;
+import com.gymnasion.tcc.repository.RotinaTreinoRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +33,7 @@ public class MetricaService {
     private final ModalidadeRepository modalidadeRepository;
     private final PersonalTrainerRepository personalTrainerRepository;
     private final RegistroMetricaRepository registroMetricaRepository;
+    private final RotinaTreinoRepository rotinaTreinoRepository;
 
     @Transactional
     public MetricaResponseDTO criarMetrica(Usuario usuario, CriarMetricaRequestDTO dto) {
@@ -135,7 +137,8 @@ public class MetricaService {
         Metrica metrica = metricaRepository.findByIdAndPersonalTrainerId(metricaId, personal.getId())
                 .orElseThrow(() -> new NotFoundException("Métrica não encontrada ou não pertence a este Personal Trainer."));
 
-        boolean possuiHistorico = registroMetricaRepository.existsByMetricaId(metricaId);
+        boolean possuiHistorico = registroMetricaRepository.existsByMetricaId(metricaId)
+                || rotinaTreinoRepository.existsByMetricaId(metricaId);
 
         if (possuiHistorico) {
             metrica.setAtivo(false);

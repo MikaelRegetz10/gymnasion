@@ -63,6 +63,9 @@ public class RotinaTreinoService {
             if (!metrica.getModalidade().getId().equals(modalidade.getId())) {
                 throw new BusinessException("A métrica '" + metrica.getTitulo() + "' não pertence à modalidade selecionada.");
             }
+            if (Boolean.FALSE.equals(metrica.getAtivo())) {
+                throw new BusinessException("A métrica '" + metrica.getTitulo() + "' está descontinuada e não pode ser vinculada a uma nova rotina.");
+            }
             metricasValidadas.add(metrica);
         }
 
