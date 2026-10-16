@@ -602,6 +602,14 @@ public class RotinaTreinoService {
                 .orElse(comData.get(0).getSemana());
     }
 
+    @Transactional(readOnly = true)
+    public SessaoTreinoResponseDTO consultarSessao(Usuario usuario, UUID sessaoId) {
+        PersonalTrainer personal = obterPersonalLogado(usuario);
+        SessaoTreino sessao = sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personal.getId())
+                .orElseThrow(() -> new NotFoundException("Sessão de treino não encontrada para este Personal Trainer."));
+        return toSessaoResponseDTO(sessao);
+    }
+
     @Transactional
     public SessaoTreinoResponseDTO editarSessaoFutura(Usuario usuario, UUID sessaoId, AtualizarSessaoTreinoRequestDTO dto) {
         PersonalTrainer personal = obterPersonalLogado(usuario);
@@ -935,6 +943,7 @@ public class RotinaTreinoService {
                     d.getRegistradoPor(),
                     d.getAluno() != null ? d.getAluno().getId() : null,
                     d.getAluno() != null && d.getAluno().getUsuario() != null ? d.getAluno().getUsuario().getNome() : null,
+                    d.getObservacoes(),
                     metricasDTO
             );
         }

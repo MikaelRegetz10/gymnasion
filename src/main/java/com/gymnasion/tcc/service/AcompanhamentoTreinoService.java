@@ -339,6 +339,7 @@ public class AcompanhamentoTreinoService {
                 d.getRegistradoPor(),
                 d.getAluno() != null ? d.getAluno().getId() : null,
                 d.getAluno() != null && d.getAluno().getUsuario() != null ? d.getAluno().getUsuario().getNome() : null,
+                d.getObservacoes(),
                 metricasDTO
         );
     }

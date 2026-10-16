@@ -165,6 +165,16 @@ public class RotinaTreinoController {
         return ResponseEntity.ok(rotinaTreinoService.consultarPlanejamento(usuario, rotinaId));
     }
 
+    @GetMapping("/sessoes/{sessaoId}")
+    @Operation(summary = "Consultar sessão de treino pelo ID", description = "Retorna os detalhes de uma sessão de treino específica do planejamento do personal trainer.")
+    @ApiResponse(responseCode = "200", description = "Sessão de treino encontrada com sucesso.")
+    @ApiResponse(responseCode = "404", description = "Sessão de treino não encontrada.")
+    public ResponseEntity<SessaoTreinoResponseDTO> consultarSessao(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("sessaoId") UUID sessaoId) {
+        return ResponseEntity.ok(rotinaTreinoService.consultarSessao(usuario, sessaoId));
+    }
+
     @PutMapping("/sessoes/{sessaoId}")
     @Operation(summary = "Editar sessão futura (US-10 C2)", description = "Atualiza o planejamento de uma sessão não executada. Bloqueia a edição se a sessão já estiver concluída/executada.")
     @ApiResponse(responseCode = "200", description = "Sessão futura atualizada com sucesso.")

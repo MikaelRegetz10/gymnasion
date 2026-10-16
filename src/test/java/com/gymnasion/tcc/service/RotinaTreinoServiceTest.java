@@ -2306,5 +2306,32 @@ class RotinaTreinoServiceTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).id()).isEqualTo(rotinaTreino.getId());
     }
+
+    @Test
+    @DisplayName("Consultar sessão de treino pelo ID pelo personal responsável")
+    void consultarSessao_sucesso() {
+        UUID sessaoId = UUID.randomUUID();
+        SessaoTreino sessao = SessaoTreino.builder()
+                .id(sessaoId)
+                .rotinaTreino(rotinaTreino)
+                .semana(3)
+                .dataPlanejada(LocalDate.now())
+                .status(StatusSessaoTreino.PLANEJADA)
+                .duracao(45)
+                .atividades("Aquecimento e tiro de 100m")
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(sessaoTreinoRepository.findByIdAndPersonalTrainerId(sessaoId, personalTrainer.getId()))
+                .thenReturn(Optional.of(sessao));
+
+        SessaoTreinoResponseDTO response = rotinaTreinoService.consultarSessao(usuarioPersonal, sessaoId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isEqualTo(sessaoId);
+        assertThat(response.semana()).isEqualTo(3);
+        assertThat(response.duracao()).isEqualTo(45);
+        assertThat(response.atividades()).isEqualTo("Aquecimento e tiro de 100m");
+    }
 }
 

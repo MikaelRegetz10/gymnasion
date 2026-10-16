@@ -265,15 +265,20 @@ public class CorrecaoDesempenhoService {
                 .toList();
 
         Aluno aluno = desempenho.getAluno();
+        RotinaTreino rotina = sessao.getRotinaTreino();
         return new DesempenhoDetalheResponseDTO(
                 sessao.getId(),
-                sessao.getRotinaTreino().getId(),
+                rotina.getId(),
+                rotina.getTitulo(),
+                rotina.getModalidade() != null ? rotina.getModalidade().getNome() : null,
                 desempenho.getId(),
                 aluno != null ? aluno.getId() : null,
                 aluno != null && aluno.getUsuario() != null ? aluno.getUsuario().getNome() : null,
                 sessao.getSemana(),
                 sessao.getDataPlanejada(),
                 sessao.getDataReal(),
+                sessao.getDuracao(),
+                sessao.getAtividades(),
                 sessao.getStatus(),
                 sessao.getConcluidaAluno(),
                 sessao.getValidadaPersonal(),
