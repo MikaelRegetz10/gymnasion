@@ -169,4 +169,19 @@ class AlunoServiceTest {
         assertThat(resultado.getContent()).hasSize(1);
         assertThat(resultado.getContent().get(0).status()).isEqualTo(StatusConvite.INATIVO);
     }
+
+    @Test
+    @DisplayName("obterMeuPerfil: Retorna os dados do próprio aluno autenticado com sucesso")
+    void obterMeuPerfil_comSucesso() {
+        Usuario usuarioAluno = aluno.getUsuario();
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+
+        AlunoResponseDTO resultado = alunoService.obterMeuPerfil(usuarioAluno);
+
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.id()).isEqualTo(aluno.getId());
+        assertThat(resultado.nomePersonal()).isEqualTo(usuarioPersonal.getNome());
+        assertThat(resultado.usuario().email()).isEqualTo(usuarioAluno.getEmail());
+    }
 }
+

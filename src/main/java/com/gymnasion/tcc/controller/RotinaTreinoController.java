@@ -90,6 +90,18 @@ public class RotinaTreinoController {
         return ResponseEntity.ok(rotinaTreinoService.vincularAlunos(usuario, rotinaId, dto));
     }
 
+    @PostMapping("/{id}/turmas/{turmaId}")
+    @Operation(summary = "Vincular turma à rotina de treino (US-06 / US-11)", description = "Vincula em lote todos os alunos da turma a uma rotina de treino existente. Valida compatibilidade de modalidade, bloqueia caso algum aluno esteja inativo (RN-014) ou possua outra rotina ativa (US-25 C6), e ignora alunos que já estão vinculados a esta mesma rotina (a menos que todos já estejam).")
+    @ApiResponse(responseCode = "200", description = "Turma vinculada à rotina de treino com sucesso.")
+    @ApiResponse(responseCode = "404", description = "Rotina de treino ou turma não encontrada.")
+    @ApiResponse(responseCode = "422", description = "Modalidade incompatível, aluno inativo, aluno já possui outra rotina ativa ou todos os alunos já estão vinculados.")
+    public ResponseEntity<RotinaTreinoResponseDTO> vincularTurma(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("id") UUID rotinaId,
+            @PathVariable("turmaId") UUID turmaId) {
+        return ResponseEntity.ok(rotinaTreinoService.vincularTurma(usuario, rotinaId, turmaId));
+    }
+
     @DeleteMapping("/{id}/alunos/{alunoId}")
     @Operation(summary = "Desvincular aluno da rotina de treino", description = "Remove o vínculo de um aluno com a rotina de treino. Exige ao menos um aluno restante na rotina (RN-012).")
     @ApiResponse(responseCode = "200", description = "Aluno desvinculado com sucesso.")

@@ -36,6 +36,13 @@ public class AlunoService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
+    public AlunoResponseDTO obterMeuPerfil(Usuario usuario) {
+        Aluno aluno = alunoRepository.findByUsuario(usuario)
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+        return toAlunoResponseDTO(aluno);
+    }
+
+    @Transactional(readOnly = true)
     public Page<AlunoResponseDTO> getAlunosVinculados(Usuario usuario, org.springframework.data.domain.Pageable pageable) {
         PersonalTrainer personalTrainer = personalTrainerRepository.getByUsuario(usuario)
                 .orElseThrow(() -> new UsernameNotFoundException("Personal não encontrado!"));
