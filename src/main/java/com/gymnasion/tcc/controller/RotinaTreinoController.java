@@ -66,6 +66,18 @@ public class RotinaTreinoController {
         return ResponseEntity.ok(rotinaTreinoService.buscarPorId(usuario, id));
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Atualizar rotina de treino", description = "Atualiza título, frequência, objetivos, métricas e alunos vinculados da rotina sem conflitar com os alunos já pertencentes a ela.")
+    @ApiResponse(responseCode = "200", description = "Rotina atualizada com sucesso.")
+    @ApiResponse(responseCode = "400", description = "Dados inválidos ou aluno com rotina ativa em outra rotina da mesma modalidade.")
+    @ApiResponse(responseCode = "404", description = "Rotina de treino não encontrada.")
+    public ResponseEntity<RotinaTreinoResponseDTO> atualizarRotina(
+            @AuthenticationPrincipal Usuario usuario,
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AtualizarRotinaTreinoRequestDTO dto) {
+        return ResponseEntity.ok(rotinaTreinoService.atualizarRotina(usuario, id, dto));
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Excluir rotina de treino (US-12)", description = "Exclui uma rotina de treino sem histórico de execução do Personal Trainer. Rotinas com sessões executadas têm seu histórico protegido e não podem ser excluídas (devem ser encerradas via US-25).")
     @ApiResponse(responseCode = "200", description = "Rotina excluída com sucesso!")
@@ -91,15 +103,16 @@ public class RotinaTreinoController {
     }
 
     @PostMapping("/{id}/turmas/{turmaId}")
-    @Operation(summary = "Vincular turma à rotina de treino (US-06 / US-11)", description = "Vincula em lote todos os alunos da turma a uma rotina de treino existente. Valida compatibilidade de modalidade, bloqueia caso algum aluno esteja inativo (RN-014) ou possua outra rotina ativa (US-25 C6), e ignora alunos que já estão vinculados a esta mesma rotina (a menos que todos já estejam).")
+    @Operation(summary = "Vincular turma à rotina de treino (US-06 / US-11)", description = "Vincula em lote todos os alunos da turma a uma rotina de treino existente. Valida compatibilidade de modalidade, bloqueia caso algum aluno esteja inativo (RN-014) ou possua outra rotina ativa (US-25 C6) na mesma modalidade. Se substituirConflitos for true, encerra rotinas ativas conflitantes na modalidade e conclui a vinculação.")
     @ApiResponse(responseCode = "200", description = "Turma vinculada à rotina de treino com sucesso.")
     @ApiResponse(responseCode = "404", description = "Rotina de treino ou turma não encontrada.")
     @ApiResponse(responseCode = "422", description = "Modalidade incompatível, aluno inativo, aluno já possui outra rotina ativa ou todos os alunos já estão vinculados.")
     public ResponseEntity<RotinaTreinoResponseDTO> vincularTurma(
             @AuthenticationPrincipal Usuario usuario,
             @PathVariable("id") UUID rotinaId,
-            @PathVariable("turmaId") UUID turmaId) {
-        return ResponseEntity.ok(rotinaTreinoService.vincularTurma(usuario, rotinaId, turmaId));
+            @PathVariable("turmaId") UUID turmaId,
+            @RequestParam(name = "substituirConflitos", defaultValue = "false") boolean substituirConflitos) {
+        return ResponseEntity.ok(rotinaTreinoService.vincularTurma(usuario, rotinaId, turmaId, substituirConflitos));
     }
 
     @DeleteMapping("/{id}/alunos/{alunoId}")

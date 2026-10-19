@@ -524,7 +524,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaSemAlunos));
         when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(aluno));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno.getId(), rotinaSemAlunos.getId()))
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno.getId(), modalidade.getId(), rotinaSemAlunos.getId()))
                 .thenReturn(false);
         when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -599,7 +599,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaB));
         when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(aluno));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno.getId(), rotinaB.getId()))
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno.getId(), modalidade.getId(), rotinaB.getId()))
                 .thenReturn(true);
 
         VincularAlunosRotinaRequestDTO dto = new VincularAlunosRotinaRequestDTO(Set.of(aluno.getId()));
@@ -623,7 +623,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(metrica1));
         when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(aluno));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(true);
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrue(aluno.getId(), modalidade.getId())).thenReturn(true);
 
         CriarRotinaTreinoRequestDTO dto = new CriarRotinaTreinoRequestDTO(
                 "Nova Rotina C",
@@ -1249,7 +1249,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaTreino));
         when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(aluno));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(false);
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrue(aluno.getId(), modalidade.getId())).thenReturn(false);
 
         ArgumentCaptor<RotinaTreino> rotinaCaptor = ArgumentCaptor.forClass(RotinaTreino.class);
         when(rotinaTreinoRepository.save(rotinaCaptor.capture())).thenAnswer(i -> {
@@ -1306,7 +1306,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaTreino));
         when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(aluno));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(false);
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrue(aluno.getId(), modalidade.getId())).thenReturn(false);
         when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(i -> {
             RotinaTreino r = i.getArgument(0);
             r.setId(UUID.randomUUID());
@@ -1355,7 +1355,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaTreino));
         when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(aluno));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(false);
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrue(aluno.getId(), modalidade.getId())).thenReturn(false);
 
         ArgumentCaptor<RotinaTreino> rotinaCaptor = ArgumentCaptor.forClass(RotinaTreino.class);
         when(rotinaTreinoRepository.save(rotinaCaptor.capture())).thenAnswer(i -> {
@@ -1392,7 +1392,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaTreino));
         when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(aluno));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrue(aluno.getId())).thenReturn(true);
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrue(aluno.getId(), modalidade.getId())).thenReturn(true);
 
         assertThatThrownBy(() -> rotinaTreinoService.reutilizarRotina(usuarioPersonal, rotinaTreino.getId(), dto))
                 .isInstanceOf(BusinessException.class)
@@ -2103,9 +2103,9 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaSemAlunos));
         when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(turma));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno.getId(), rotinaSemAlunos.getId()))
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno.getId(), modalidade.getId(), rotinaSemAlunos.getId()))
                 .thenReturn(false);
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno2.getId(), rotinaSemAlunos.getId()))
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno2.getId(), modalidade.getId(), rotinaSemAlunos.getId()))
                 .thenReturn(false);
         when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -2147,7 +2147,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaTreino));
         when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(turma));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno2.getId(), rotinaTreino.getId()))
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno2.getId(), modalidade.getId(), rotinaTreino.getId()))
                 .thenReturn(false);
         when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -2242,7 +2242,7 @@ class RotinaTreinoServiceTest {
                 .thenReturn(Optional.of(rotinaTreino));
         when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
                 .thenReturn(Optional.of(turma));
-        when(rotinaTreinoRepository.existsByAlunoIdAndAtivoTrueAndIdNot(aluno2.getId(), rotinaTreino.getId()))
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno2.getId(), modalidade.getId(), rotinaTreino.getId()))
                 .thenReturn(true);
 
         assertThatThrownBy(() -> rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaTreino.getId(), turma.getId()))
@@ -2386,5 +2386,140 @@ class RotinaTreinoServiceTest {
         assertThatThrownBy(() -> rotinaTreinoService.adicionarSessao(usuarioPersonal, rotinaTreino.getId(), dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Não é possível adicionar sessões a uma rotina de treino já encerrada.");
+    }
+
+    @Test
+    @DisplayName("Atualizar rotina de treino com sucesso mantendo alunos já vinculados")
+    void atualizarRotina_sucessoMantendoAlunosJaVinculados() {
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(metricaRepository.findByIdAndPersonalTrainerId(metrica1.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(metrica1));
+        when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno));
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno.getId(), modalidade.getId(), rotinaTreino.getId()))
+                .thenReturn(false);
+        when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AtualizarRotinaTreinoRequestDTO dto = new AtualizarRotinaTreinoRequestDTO(
+                "Rotina Atualizada",
+                5,
+                "Novos objetivos",
+                Set.of(aluno.getId()),
+                Set.of(metrica1.getId())
+        );
+
+        RotinaTreinoResponseDTO response = rotinaTreinoService.atualizarRotina(usuarioPersonal, rotinaTreino.getId(), dto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.titulo()).isEqualTo("Rotina Atualizada");
+        assertThat(response.frequenciaSemanal()).isEqualTo(5);
+        assertThat(response.objetivos()).isEqualTo("Novos objetivos");
+        assertThat(response.alunos()).hasSize(1);
+        verify(rotinaTreinoRepository).save(rotinaTreino);
+    }
+
+    @Test
+    @DisplayName("Atualizar rotina de treino bloqueia quando aluno possui outra rotina ativa na mesma modalidade")
+    void atualizarRotina_conflitoOutraRotinaMesmaModalidade_lancaExcecao() {
+        Usuario usuarioAluno2 = Usuario.builder()
+                .id(UUID.randomUUID())
+                .email("aluno2@gymnasion.com")
+                .nome("Aluno Pedro")
+                .role(Role.ALUNO)
+                .build();
+        Aluno aluno2 = Aluno.builder()
+                .id(UUID.randomUUID())
+                .usuario(usuarioAluno2)
+                .personal(personalTrainer)
+                .status(StatusConvite.ATIVO)
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(metricaRepository.findByIdAndPersonalTrainerId(metrica1.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(metrica1));
+        when(alunoRepository.findByIdAndPersonalId(aluno2.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(aluno2));
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno2.getId(), modalidade.getId(), rotinaTreino.getId()))
+                .thenReturn(true);
+
+        AtualizarRotinaTreinoRequestDTO dto = new AtualizarRotinaTreinoRequestDTO(
+                "Rotina Atualizada",
+                5,
+                "Novos objetivos",
+                Set.of(aluno2.getId()),
+                Set.of(metrica1.getId())
+        );
+
+        assertThatThrownBy(() -> rotinaTreinoService.atualizarRotina(usuarioPersonal, rotinaTreino.getId(), dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("O aluno Aluno Pedro já possui uma rotina de treino ativa. A rotina atual precisa ser encerrada antes.");
+
+        verify(rotinaTreinoRepository, never()).save(rotinaTreino);
+    }
+
+    @Test
+    @DisplayName("Vincular turma com substituirConflitos=true encerra rotina conflitante anterior e vincula")
+    void vincularTurma_substituirConflitosTrue_encerraRotinaConflitanteEVincula() {
+        Usuario usuarioAluno2 = Usuario.builder()
+                .id(UUID.randomUUID())
+                .email("aluno2@gymnasion.com")
+                .nome("Aluno Pedro")
+                .role(Role.ALUNO)
+                .build();
+        Aluno aluno2 = Aluno.builder()
+                .id(UUID.randomUUID())
+                .usuario(usuarioAluno2)
+                .personal(personalTrainer)
+                .status(StatusConvite.ATIVO)
+                .build();
+
+        Turma turma = Turma.builder()
+                .id(UUID.randomUUID())
+                .nome("Turma Natação")
+                .personal(personalTrainer)
+                .modalidade(modalidade)
+                .alunos(new HashSet<>(Set.of(aluno2)))
+                .build();
+
+        RotinaTreino rotinaConflitante = RotinaTreino.builder()
+                .id(UUID.randomUUID())
+                .titulo("Rotina Antiga Pedro")
+                .modalidade(modalidade)
+                .personalTrainer(personalTrainer)
+                .ativo(true)
+                .alunos(new HashSet<>(Set.of(aluno2)))
+                .sessoes(new ArrayList<>(List.of(
+                        SessaoTreino.builder()
+                                .id(UUID.randomUUID())
+                                .status(StatusSessaoTreino.PLANEJADA)
+                                .dataPlanejada(LocalDate.now().plusDays(3))
+                                .semana(1)
+                                .duracao(45)
+                                .build()
+                )))
+                .build();
+
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        when(rotinaTreinoRepository.findByIdAndPersonalTrainerId(rotinaTreino.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(rotinaTreino));
+        when(turmaRepository.findByIdAndPersonalId(turma.getId(), personalTrainer.getId()))
+                .thenReturn(Optional.of(turma));
+        when(rotinaTreinoRepository.existsByAlunoIdAndModalidadeIdAndAtivoTrueAndIdNot(aluno2.getId(), modalidade.getId(), rotinaTreino.getId()))
+                .thenReturn(true);
+        when(rotinaTreinoRepository.findByAlunoIdAndModalidadeIdAndAtivoTrue(aluno2.getId(), modalidade.getId()))
+                .thenReturn(List.of(rotinaConflitante));
+        when(rotinaTreinoRepository.save(any(RotinaTreino.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        RotinaTreinoResponseDTO response = rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaTreino.getId(), turma.getId(), true);
+
+        assertThat(response).isNotNull();
+        assertThat(response.alunos()).extracting(RotinaTreinoResponseDTO.AlunoResumoDTO::id)
+                .contains(aluno2.getId());
+        assertThat(rotinaConflitante.getAtivo()).isFalse();
+        assertThat(rotinaConflitante.getSessoes()).isEmpty();
     }
 }

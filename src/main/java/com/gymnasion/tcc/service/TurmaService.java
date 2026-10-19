@@ -8,6 +8,7 @@ import com.gymnasion.tcc.exceptions.NotFoundException;
 import com.gymnasion.tcc.repository.AlunoRepository;
 import com.gymnasion.tcc.repository.ModalidadeRepository;
 import com.gymnasion.tcc.repository.PersonalTrainerRepository;
+import com.gymnasion.tcc.repository.RotinaTreinoRepository;
 import com.gymnasion.tcc.repository.TurmaRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -28,6 +30,8 @@ public class TurmaService {
     private final PersonalTrainerRepository personalTrainerRepository;
     private final ModalidadeRepository modalidadeRepository;
     private final AlunoRepository alunoRepository;
+    private final RotinaTreinoRepository rotinaTreinoRepository;
+    private final AcompanhamentoTreinoService acompanhamentoTreinoService;
 
     @Transactional
     public TurmaResponseDTO criarTurma(Usuario usuario, CriarTurmaRequestDTO dto) {
@@ -127,6 +131,42 @@ public class TurmaService {
 
         turma.getAlunos().add(aluno);
         turmaRepository.save(turma);
+
+        // Se os outros alunos da turma já compartilham uma rotina ativa da mesma modalidade,
+        // vincula automaticamente o novo aluno caso ele não possua rotina ativa nessa modalidade (Decisão 4)
+        if (rotinaTreinoRepository != null) {
+            Long modalidadeId = turma.getModalidade().getId();
+            boolean alunoPossuiRotinaNaModalidade = rotinaTreinoRepository
+                    .existsByAlunoIdAndModalidadeIdAndAtivoTrue(aluno.getId(), modalidadeId);
+
+            if (!alunoPossuiRotinaNaModalidade) {
+                Set<UUID> outrosAlunosIds = turma.getAlunos().stream()
+                        .map(Aluno::getId)
+                        .filter(id -> !id.equals(aluno.getId()))
+                        .collect(Collectors.toSet());
+
+                if (!outrosAlunosIds.isEmpty()) {
+                    List<RotinaTreino> rotinasModalidade = rotinaTreinoRepository
+                            .findByPersonalTrainerIdAndModalidadeId(personal.getId(), modalidadeId);
+
+                    for (RotinaTreino rotina : rotinasModalidade) {
+                        if (Boolean.TRUE.equals(rotina.getAtivo()) && rotina.getAlunos() != null) {
+                            boolean vinculadaAosOutros = rotina.getAlunos().stream()
+                                    .anyMatch(a -> outrosAlunosIds.contains(a.getId()));
+                            if (vinculadaAosOutros) {
+                                rotina.getAlunos().add(aluno);
+                                rotinaTreinoRepository.save(rotina);
+                                if (acompanhamentoTreinoService != null) {
+                                    acompanhamentoTreinoService.sincronizarNotificacaoParaAluno(aluno);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return new MensagemResponseDTO("Aluno adicionado com sucesso");
     }
 
