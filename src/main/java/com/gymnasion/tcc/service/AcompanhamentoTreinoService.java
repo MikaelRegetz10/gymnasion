@@ -293,6 +293,9 @@ public class AcompanhamentoTreinoService {
 
         List<MetricaPendenteDTO> pendentes = new ArrayList<>();
         for (Metrica m : metricasRotina) {
+            if (Boolean.FALSE.equals(m.getAtivo())) {
+                continue;
+            }
             // US-18 C5 / US-22 C5: Métricas exclusivas do personal
             boolean pendenciaPersonal = m.getQuemPreenche() == ResponsavelPreenchimento.PERSONAL
                     || (m.getQuemPreenche() == ResponsavelPreenchimento.AMBOS && Boolean.TRUE.equals(m.getObrigatoria()));
