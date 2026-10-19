@@ -393,7 +393,7 @@ public class RotinaTreinoService {
         }
 
         if (novosAlunos.isEmpty()) {
-            throw new BusinessException("Esse aluno já possui o treino vinculado.");
+            throw new BusinessException("Todos os alunos desta turma já possuem esta rotina de treino vinculada.");
         }
 
         rotina.getAlunos().addAll(novosAlunos);

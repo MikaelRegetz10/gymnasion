@@ -2178,7 +2178,7 @@ class RotinaTreinoServiceTest {
 
         assertThatThrownBy(() -> rotinaTreinoService.vincularTurma(usuarioPersonal, rotinaTreino.getId(), turma.getId()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Esse aluno já possui o treino vinculado.");
+                .hasMessage("Todos os alunos desta turma já possuem esta rotina de treino vinculada.");
 
         verify(rotinaTreinoRepository, never()).save(any(RotinaTreino.class));
     }
