@@ -30,4 +30,10 @@ public class IntegracaoStrava {
 
     @Column(name = "expira_em", nullable = false)
     private OffsetDateTime expiraEm;
+
+    @Column(name = "atleta_id")
+    private Long atletaId;
+
+    @Column(name = "nome_atleta", length = 150)
+    private String nomeAtleta;
 }
