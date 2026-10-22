@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.domain;
 
+import com.gymnasion.tcc.domain.enums.CampoStrava;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import jakarta.persistence.*;
@@ -41,6 +42,10 @@ public class Metrica {
     @Enumerated(EnumType.STRING)
     @Column(name = "quem_preenche", nullable = false, length = 30)
     private ResponsavelPreenchimento quemPreenche = ResponsavelPreenchimento.AMBOS;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "campo_strava", length = 50)
+    private CampoStrava campoStrava;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "modalidade_id", nullable = false)

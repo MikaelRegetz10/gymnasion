@@ -486,6 +486,11 @@ public class StravaService {
         String tempoFormatado = String.format("%02d:%02d", min, sec);
         int duracaoMinutos = (int) Math.round(movingTime / 60.0);
 
+        int elapsedTime = item.path("elapsed_time").asInt(movingTime);
+        long elMin = elapsedTime / 60;
+        long elSec = elapsedTime % 60;
+        String tempoTotalFormatado = String.format("%02d:%02d", elMin, elSec);
+
         Integer hrMedia = item.hasNonNull("average_heartrate")
                 ? (int) Math.round(item.path("average_heartrate").asDouble(0.0))
                 : null;
@@ -494,6 +499,25 @@ public class StravaService {
                 : null;
 
         String ritmoMedio = calcularRitmo(tipo, distanciaMetros, movingTime);
+
+        Double cadenciaMedia = item.hasNonNull("average_cadence")
+                ? BigDecimal.valueOf(item.path("average_cadence").asDouble()).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                : null;
+        Double potenciaMediaWatts = item.hasNonNull("average_watts")
+                ? BigDecimal.valueOf(item.path("average_watts").asDouble()).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                : null;
+        Double potenciaMaximaWatts = item.hasNonNull("max_watts")
+                ? BigDecimal.valueOf(item.path("max_watts").asDouble()).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                : null;
+        Double elevacaoGanhoMetros = item.hasNonNull("total_elevation_gain")
+                ? BigDecimal.valueOf(item.path("total_elevation_gain").asDouble()).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                : null;
+        Double velMediaKmh = item.hasNonNull("average_speed")
+                ? BigDecimal.valueOf(item.path("average_speed").asDouble() * 3.6).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                : null;
+        Double velMaximaKmh = item.hasNonNull("max_speed")
+                ? BigDecimal.valueOf(item.path("max_speed").asDouble() * 3.6).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                : null;
 
         Double calorias = item.hasNonNull("calories") ? item.path("calories").asDouble(0.0) : null;
 
@@ -513,6 +537,13 @@ public class StravaService {
                 hrMedia,
                 hrMax,
                 ritmoMedio,
+                tempoTotalFormatado,
+                cadenciaMedia,
+                potenciaMediaWatts,
+                potenciaMaximaWatts,
+                elevacaoGanhoMetros,
+                velMediaKmh,
+                velMaximaKmh,
                 calorias
         );
     }
@@ -588,6 +619,13 @@ public class StravaService {
                         154,
                         172,
                         "05:13 min/km",
+                        "28:10",
+                        166.0,
+                        null,
+                        null,
+                        45.0,
+                        11.5,
+                        15.8,
                         385.0
                 ),
                 new StravaAtividadeDTO(
@@ -606,6 +644,13 @@ public class StravaService {
                         168,
                         185,
                         "04:51 min/km",
+                        "17:45",
+                        174.0,
+                        null,
+                        null,
+                        22.0,
+                        12.4,
+                        18.0,
                         260.0
                 ),
                 new StravaAtividadeDTO(
@@ -624,6 +669,13 @@ public class StravaService {
                         142,
                         160,
                         "24,7 km/h",
+                        "55:30",
+                        82.0,
+                        185.0,
+                        340.0,
+                        210.0,
+                        24.7,
+                        42.5,
                         610.0
                 )
         );

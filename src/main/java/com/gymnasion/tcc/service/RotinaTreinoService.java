@@ -2,6 +2,7 @@ package com.gymnasion.tcc.service;
 
 import com.gymnasion.tcc.domain.*;
 import com.gymnasion.tcc.domain.enums.CampoAuditado;
+import com.gymnasion.tcc.domain.enums.CampoStrava;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.Role;
 import com.gymnasion.tcc.domain.enums.StatusConvite;
@@ -761,7 +762,8 @@ public class RotinaTreinoService {
                         metrica.getTitulo(),
                         metrica.getTipo(),
                         metrica.getObrigatoria(),
-                        metrica.getQuemPreenche()
+                        metrica.getQuemPreenche(),
+                        metrica.getCampoStrava()
                 ))
                 .toList();
 
@@ -882,7 +884,10 @@ public class RotinaTreinoService {
                 throw new BusinessException("A métrica '" + metrica.getTitulo() + "' é de preenchimento exclusivo do aluno.");
             }
             if (!isPersonal && quemPreenche == ResponsavelPreenchimento.PERSONAL) {
-                throw new BusinessException("A métrica '" + metrica.getTitulo() + "' é de preenchimento exclusivo do personal trainer.");
+                // Permite gravação se a métrica estiver vinculada a campo do Strava (integração autorizada)
+                if (metrica.getCampoStrava() == null || metrica.getCampoStrava() == CampoStrava.NENHUM) {
+                    throw new BusinessException("A métrica '" + metrica.getTitulo() + "' é de preenchimento exclusivo do personal trainer.");
+                }
             }
 
             // US-22 Cenário 9 / US-18 (RN-015): Valida o valor de acordo com o tipo da métrica
@@ -1102,7 +1107,8 @@ public class RotinaTreinoService {
                         metrica.getTitulo(),
                         metrica.getTipo(),
                         metrica.getObrigatoria(),
-                        metrica.getQuemPreenche()
+                        metrica.getQuemPreenche(),
+                        metrica.getCampoStrava()
                 ))
                 .toList();
 

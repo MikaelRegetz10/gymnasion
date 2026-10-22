@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.dto;
 
+import com.gymnasion.tcc.domain.enums.CampoStrava;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import jakarta.validation.constraints.NotBlank;
@@ -14,5 +15,11 @@ public record AtualizarMetricaRequestDTO(
 
         Boolean obrigatoria,
 
-        ResponsavelPreenchimento quemPreenche
-) {}
+        ResponsavelPreenchimento quemPreenche,
+
+        CampoStrava campoStrava
+) {
+    public AtualizarMetricaRequestDTO(String titulo, TipoMetrica tipo, Boolean obrigatoria, ResponsavelPreenchimento quemPreenche) {
+        this(titulo, tipo, obrigatoria, quemPreenche, null);
+    }
+}

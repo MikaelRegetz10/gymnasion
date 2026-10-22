@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.dto;
 
+import com.gymnasion.tcc.domain.enums.CampoStrava;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 
@@ -27,6 +28,11 @@ public record RotinaTreinoResponseDTO(
             String titulo,
             TipoMetrica tipo,
             Boolean obrigatoria,
-            ResponsavelPreenchimento quemPreenche
-    ) {}
+            ResponsavelPreenchimento quemPreenche,
+            CampoStrava campoStrava
+    ) {
+        public MetricaResumoDTO(UUID id, String titulo, TipoMetrica tipo, Boolean obrigatoria, ResponsavelPreenchimento quemPreenche) {
+            this(id, titulo, tipo, obrigatoria, quemPreenche, null);
+        }
+    }
 }

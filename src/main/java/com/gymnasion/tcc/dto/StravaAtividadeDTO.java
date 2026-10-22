@@ -50,6 +50,27 @@ public record StravaAtividadeDTO(
         @Schema(description = "Ritmo médio com unidade da modalidade: min/km (corrida e caminhada), min/100m (natação) ou km/h (ciclismo)", example = "05:13 min/km")
         String ritmoMedio,
 
+        @Schema(description = "Tempo total decorrido formatado no padrão MM:SS ou HH:MM:SS", example = "28:10")
+        String tempoTotalFormatado,
+
+        @Schema(description = "Cadência média em passos/min (corrida) ou rotações/min (ciclismo)", example = "168.0")
+        Double cadenciaMedia,
+
+        @Schema(description = "Potência média gerada em Watts", example = "210.0")
+        Double potenciaMediaWatts,
+
+        @Schema(description = "Potência máxima gerada em Watts", example = "420.0")
+        Double potenciaMaximaWatts,
+
+        @Schema(description = "Ganho total de elevação em metros (altimetria acumulada)", example = "125.0")
+        Double elevacaoGanhoMetros,
+
+        @Schema(description = "Velocidade média em km/h", example = "11.5")
+        Double velocidadeMediaKmh,
+
+        @Schema(description = "Velocidade máxima em km/h", example = "18.2")
+        Double velocidadeMaximaKmh,
+
         @Schema(description = "Gasto calórico estimado", example = "380.0")
         Double calorias
 ) {}
