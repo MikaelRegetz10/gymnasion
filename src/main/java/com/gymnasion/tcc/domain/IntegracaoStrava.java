@@ -36,4 +36,14 @@ public class IntegracaoStrava {
 
     @Column(name = "nome_atleta", length = 150)
     private String nomeAtleta;
+
+    @Column(name = "escopo", length = 255)
+    private String escopo;
+
+    @Column(name = "conectado_em")
+    private OffsetDateTime conectadoEm;
+
+    @Builder.Default
+    @Column(name = "reconexao_pendente", nullable = false)
+    private boolean reconexaoPendente = false;
 }

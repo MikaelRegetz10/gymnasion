@@ -121,6 +121,18 @@ public class NotificacaoService {
     }
 
     /**
+     * US-14 C3: Strava reconectado ou desconectado; a notificação de reconexão deixa de estar pendente.
+     */
+    @Transactional
+    public void resolverStravaExpirado(Usuario usuario) {
+        notificacaoRepository.findByUsuarioIdAndTipoAndReferenciaId(usuario.getId(), TipoNotificacao.STRAVA_EXPIRADO, usuario.getId())
+                .ifPresent(n -> {
+                    n.setLida(true);
+                    notificacaoRepository.save(n);
+                });
+    }
+
+    /**
      * US-16 C1: Relatório de performance gerado e disponível para download ("Relatório pronto").
      */
     @Transactional

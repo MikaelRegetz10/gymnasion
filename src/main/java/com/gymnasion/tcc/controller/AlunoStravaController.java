@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +21,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/alunos/strava")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ALUNO')")
 @Tag(name = "Strava (Aluno)", description = "Endpoints de integração com Strava OAuth 2.0 para alunos (US-14)")
 @SecurityRequirement(name = "bearerAuth")
 public class AlunoStravaController {
@@ -34,7 +36,7 @@ public class AlunoStravaController {
     }
 
     @PostMapping("/conectar")
-    @Operation(summary = "Conectar conta Strava após callback OAuth ou via tokens (US-14 C1)")
+    @Operation(summary = "Conectar conta Strava com o code retornado no callback OAuth (US-14 C1)")
     public ResponseEntity<StravaStatusResponseDTO> conectar(
             @AuthenticationPrincipal Usuario usuario,
             @Valid @RequestBody StravaConectarRequestDTO dto) {

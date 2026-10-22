@@ -13,7 +13,7 @@ public class StravaProperties {
 
     private String clientId;
     private String clientSecret;
-    private String redirectUri = "http://localhost/strava/callback";
+    private String redirectUri = "http://localhost:5173/strava/callback";
     private boolean mockEnabled = false;
 
     public boolean isConfigured() {

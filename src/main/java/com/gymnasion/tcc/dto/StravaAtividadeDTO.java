@@ -29,7 +29,7 @@ public record StravaAtividadeDTO(
         @Schema(description = "Distância percorrida em quilômetros (formato compatível com métrica NUMERICO)", example = "5.23")
         Double distanciaKm,
 
-        @Schema(description = "Distância formatada com unidade", example = "5.23 km")
+        @Schema(description = "Distância formatada com unidade", example = "5,23 km")
         String distanciaFormatada,
 
         @Schema(description = "Tempo em movimento em segundos", example = "1635")
@@ -47,8 +47,8 @@ public record StravaAtividadeDTO(
         @Schema(description = "Frequência cardíaca máxima em bpm", example = "175")
         Integer frequenciaCardiacaMaxima,
 
-        @Schema(description = "Ritmo médio de corrida formatado em min/km", example = "05:13 min/km")
-        String ritmoMedioMinKm,
+        @Schema(description = "Ritmo médio com unidade da modalidade: min/km (corrida e caminhada), min/100m (natação) ou km/h (ciclismo)", example = "05:13 min/km")
+        String ritmoMedio,
 
         @Schema(description = "Gasto calórico estimado", example = "380.0")
         Double calorias

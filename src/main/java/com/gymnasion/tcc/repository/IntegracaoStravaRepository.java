@@ -13,9 +13,5 @@ public interface IntegracaoStravaRepository extends JpaRepository<IntegracaoStra
 
     Optional<IntegracaoStrava> findByAluno(Aluno aluno);
 
-    Optional<IntegracaoStrava> findByAlunoId(UUID alunoId);
-
-    void deleteByAluno(Aluno aluno);
-
-    boolean existsByAluno(Aluno aluno);
+    boolean existsByAtletaIdAndAlunoIdNot(Long atletaId, UUID alunoId);
 }

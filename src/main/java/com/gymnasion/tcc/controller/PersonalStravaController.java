@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +19,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/personal-trainers/alunos/{alunoId}/strava")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('PERSONAL_TRAINER')")
 @Tag(name = "Strava (Personal)", description = "Visualização de atividades sincronizadas do Strava pelo Personal Trainer (US-14)")
 @SecurityRequirement(name = "bearerAuth")
 public class PersonalStravaController {
