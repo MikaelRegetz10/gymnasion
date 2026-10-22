@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.dto;
 
+import com.gymnasion.tcc.domain.enums.CampoStrava;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import jakarta.validation.constraints.NotBlank;
@@ -21,5 +22,11 @@ public record CriarMetricaRequestDTO(
         Boolean obrigatoria,
 
         @NotNull(message = "O responsável pelo preenchimento é obrigatório.")
-        ResponsavelPreenchimento quemPreenche
-) {}
+        ResponsavelPreenchimento quemPreenche,
+
+        CampoStrava campoStrava
+) {
+    public CriarMetricaRequestDTO(Long modalidadeId, String titulo, TipoMetrica tipo, Boolean obrigatoria, ResponsavelPreenchimento quemPreenche) {
+        this(modalidadeId, titulo, tipo, obrigatoria, quemPreenche, null);
+    }
+}

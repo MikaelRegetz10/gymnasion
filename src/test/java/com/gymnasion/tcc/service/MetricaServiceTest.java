@@ -4,6 +4,7 @@ import com.gymnasion.tcc.domain.Metrica;
 import com.gymnasion.tcc.domain.Modalidade;
 import com.gymnasion.tcc.domain.PersonalTrainer;
 import com.gymnasion.tcc.domain.Usuario;
+import com.gymnasion.tcc.domain.enums.CampoStrava;
 import com.gymnasion.tcc.domain.enums.ResponsavelPreenchimento;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import com.gymnasion.tcc.dto.AtualizarMetricaRequestDTO;
@@ -403,5 +404,46 @@ class MetricaServiceTest {
         // Então: exclusão física executada e mensagem literal
         assertThat(response.mensagem()).isEqualTo("Métrica excluída com sucesso!");
         verify(metricaRepository, times(1)).delete(m);
+    }
+
+    @Test
+    @DisplayName("US18: Criar métrica com campo do Strava compatível salva com sucesso")
+    void US18_criarMetricaComCampoStravaCompativel() {
+        CriarMetricaRequestDTO dto = new CriarMetricaRequestDTO(
+                1L, "Cadência Média", TipoMetrica.NUMERICO, false, ResponsavelPreenchimento.PERSONAL, CampoStrava.CADENCIA_MEDIA
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioLogado)).thenReturn(Optional.of(personalTrainer));
+        when(metricaRepository.existsByPersonalTrainerIdAndModalidadeIdAndTituloIgnoreCase(
+                personalTrainer.getId(), 1L, "Cadência Média")).thenReturn(false);
+        when(modalidadeRepository.findById(1L)).thenReturn(Optional.of(modalidade));
+        when(metricaRepository.save(any(Metrica.class))).thenAnswer(inv -> {
+            Metrica m = inv.getArgument(0);
+            m.setId(UUID.randomUUID());
+            return m;
+        });
+
+        MetricaResponseDTO response = metricaService.criarMetrica(usuarioLogado, dto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.campoStrava()).isEqualTo(CampoStrava.CADENCIA_MEDIA);
+        assertThat(response.titulo()).isEqualTo("Cadência Média");
+    }
+
+    @Test
+    @DisplayName("US18: Criar métrica com campo do Strava incompatível com o tipo lança BusinessException")
+    void US18_criarMetricaComCampoStravaIncompativel() {
+        CriarMetricaRequestDTO dto = new CriarMetricaRequestDTO(
+                1L, "Tempo Incompatível", TipoMetrica.TEMPO, true, ResponsavelPreenchimento.ALUNO, CampoStrava.DISTANCIA_KM
+        );
+
+        when(personalTrainerRepository.getByUsuario(usuarioLogado)).thenReturn(Optional.of(personalTrainer));
+        when(metricaRepository.existsByPersonalTrainerIdAndModalidadeIdAndTituloIgnoreCase(
+                personalTrainer.getId(), 1L, "Tempo Incompatível")).thenReturn(false);
+        when(modalidadeRepository.findById(1L)).thenReturn(Optional.of(modalidade));
+
+        assertThatThrownBy(() -> metricaService.criarMetrica(usuarioLogado, dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("O campo do Strava selecionado não é compatível com o tipo de métrica.");
     }
 }

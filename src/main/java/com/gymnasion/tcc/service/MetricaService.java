@@ -4,6 +4,7 @@ import com.gymnasion.tcc.domain.Metrica;
 import com.gymnasion.tcc.domain.Modalidade;
 import com.gymnasion.tcc.domain.PersonalTrainer;
 import com.gymnasion.tcc.domain.Usuario;
+import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import com.gymnasion.tcc.dto.AtualizarMetricaRequestDTO;
 import com.gymnasion.tcc.dto.CriarMetricaRequestDTO;
 import com.gymnasion.tcc.dto.MensagemResponseDTO;
@@ -50,11 +51,16 @@ public class MetricaService {
         Modalidade modalidade = modalidadeRepository.findById(dto.modalidadeId())
                 .orElseThrow(() -> new NotFoundException("Modalidade não encontrada."));
 
+        if (dto.campoStrava() != null && !dto.campoStrava().isCompativelCom(dto.tipo())) {
+            throw new BusinessException("O campo do Strava selecionado não é compatível com o tipo de métrica.");
+        }
+
         Metrica metrica = Metrica.builder()
                 .titulo(dto.titulo().trim())
                 .tipo(dto.tipo())
                 .obrigatoria(dto.obrigatoria())
                 .quemPreenche(dto.quemPreenche())
+                .campoStrava(dto.campoStrava())
                 .modalidade(modalidade)
                 .personalTrainer(personal)
                 .ativo(true)
@@ -113,6 +119,14 @@ public class MetricaService {
             metrica.setQuemPreenche(dto.quemPreenche());
         }
 
+        if (dto.campoStrava() != null) {
+            TipoMetrica tipoFinal = dto.tipo() != null ? dto.tipo() : metrica.getTipo();
+            if (!dto.campoStrava().isCompativelCom(tipoFinal)) {
+                throw new BusinessException("O campo do Strava selecionado não é compatível com o tipo de métrica.");
+            }
+            metrica.setCampoStrava(dto.campoStrava());
+        }
+
         if (!metrica.getTitulo().equalsIgnoreCase(dto.titulo().trim())) {
             boolean tituloEmUso = metricaRepository.existsByPersonalTrainerIdAndModalidadeIdAndTituloIgnoreCaseAndIdNot(
                     personal.getId(), metrica.getModalidade().getId(), dto.titulo().trim(), metricaId
@@ -164,6 +178,7 @@ public class MetricaService {
                 metrica.getModalidade().getNome(),
                 metrica.getObrigatoria(),
                 metrica.getQuemPreenche(),
+                metrica.getCampoStrava(),
                 metrica.getAtivo(),
                 qtdAlunos
         );
