@@ -16,7 +16,7 @@ public record RegistroPersonalCompletoDTO(
     String email,
 
     @NotBlank(message = "A senha é obrigatória.")
-    @Size(min = 6, max = 255)
+    @Size(min = 8, max = 255)
     String password,
 
     @NotBlank(message = "O CPF é obrigatório.")
@@ -28,6 +28,8 @@ public record RegistroPersonalCompletoDTO(
     String celular,
 
     @NotNull(message = "A modalidade é obrigatória")
-    Long modalidade
+    Long modalidade,
+
+    Boolean aceitouTermos
 ){
 }

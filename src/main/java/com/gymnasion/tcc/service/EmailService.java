@@ -47,6 +47,20 @@ public class EmailService {
     }
 
     /**
+     * US-03 C1: Envio de link de convite ao aluno por e-mail.
+     */
+    public void enviarConviteAluno(String emailAluno, String nomePersonal, String nomeModalidade, String linkConvite) {
+        String assunto = "Gymnasion - Convite para treinar com " + nomePersonal;
+        String mensagem = "Olá!\n\n"
+                + "Você foi convidado(a) por " + nomePersonal + " para treinar " + nomeModalidade + " na plataforma Gymnasion.\n\n"
+                + "Para concluir seu cadastro, acesse o link abaixo (válido por 15 minutos):\n"
+                + linkConvite + "\n\n"
+                + "Se você não solicitou este convite, por favor desconsidere este e-mail.\n\n"
+                + "Equipe Gymnasion";
+        enviarEmail(emailAluno, assunto, mensagem);
+    }
+
+    /**
      * US-03 C3: E-mail ao aluno aprovado.
      * Mensagem literal do DRS: "O {personal} aprovou sua solicitação, agora você pode acessar o sistema para conferir seus treinos."
      */
