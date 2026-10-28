@@ -57,11 +57,10 @@ services:
     logging: *default-logging
 
   app:
+    # Imagem publicada pelo workflow docker-publish; nada é compilado na VPS
+    # (o Portainer não tem o código-fonte e a VPS tem pouca memória para compilar)
     image: ghcr.io/gymnasion-app/gymnasion-api:${IMAGE_TAG:-latest}
-    # Usado só com "up --build"; o normal é baixar a imagem pronta (a VPS tem pouca memória para compilar)
-    build:
-      context: .
-      dockerfile: Dockerfile
+    pull_policy: always
     container_name: gymnasion_app
     restart: unless-stopped
     environment:
