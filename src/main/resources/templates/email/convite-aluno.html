@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="only light">
+  <meta name="supported-color-schemes" content="only light">
+  <title>Convite Gymnasion</title>
+  <style>
+    :root {
+      color-scheme: only light;
+      supported-color-schemes: only light;
+    }
+    @media (prefers-color-scheme: dark) {
+      body, table, td, p, a, h1, span, strong {
+        color-scheme: only light !important;
+      }
+      .external-bg {
+        background-color: #FDF6F3 !important;
+        background-image: linear-gradient(#FDF6F3, #FDF6F3) !important;
+      }
+      .email-card {
+        background-color: #FFFFFF !important;
+        background-image: linear-gradient(#FFFFFF, #FFFFFF) !important;
+        border-color: #F1E4DE !important;
+      }
+      .text-title {
+        color: #111827 !important;
+      }
+      .text-body {
+        color: #5B6478 !important;
+      }
+      .text-muted {
+        color: #8A93A6 !important;
+      }
+      .btn-primary {
+        background-color: #E2623A !important;
+        color: #FFFFFF !important;
+      }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#FDF6F3;background-image:linear-gradient(#FDF6F3, #FDF6F3);">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+         class="external-bg"
+         style="background-color:#FDF6F3;background-image:linear-gradient(#FDF6F3, #FDF6F3);padding:32px 16px;">
+    <tr>
+      <td align="center">
+
+        <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0"
+               class="email-card"
+               style="max-width:560px;width:100%;background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF, #FFFFFF);border-radius:20px;border:1px solid #F1E4DE;">
+
+          <!-- Logo -->
+          <tr>
+            <td style="padding:32px 40px 8px 40px;">
+              <img src="cid:logo" alt="Gymnasion" height="36" style="display:block;border:0;height:36px;">
+            </td>
+          </tr>
+
+          <!-- Título -->
+          <tr>
+            <td style="padding:24px 40px 0 40px;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;">
+              <h1 class="text-title" style="margin:0;font-size:28px;line-height:34px;font-weight:800;color:#111827;letter-spacing:-0.5px;">
+                Treine, meça e <span style="color:#E2623A;">evolua</span> com seu personal.
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Texto -->
+          <tr>
+            <td class="text-body" style="padding:16px 40px 0 40px;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#5B6478;">
+              Olá! Você foi convidado(a) por <strong class="text-title" style="color:#111827;">{{nomePersonal}}</strong>
+              para treinar <strong class="text-title" style="color:#111827;">{{modalidade}}</strong> na plataforma Gymnasion.
+              Conclua seu cadastro para começar.
+            </td>
+          </tr>
+
+          <!-- Botão -->
+          <tr>
+            <td style="padding:28px 40px 0 40px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="#E2623A" style="border-radius:12px;background-color:#E2623A;background-image:linear-gradient(#E2623A, #E2623A);">
+                    <a href="{{link}}" target="_blank"
+                       class="btn-primary"
+                       style="display:inline-block;padding:14px 28px;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:12px;background-color:#E2623A;">
+                      Concluir cadastro
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Aviso de validade -->
+          <tr>
+            <td class="text-body" style="padding:20px 40px 0 40px;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#5B6478;">
+              Este link é válido por <strong class="text-title" style="color:#111827;">15 minutos</strong>.
+            </td>
+          </tr>
+
+          <!-- Link alternativo -->
+          <tr>
+            <td class="text-muted" style="padding:16px 40px 0 40px;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#8A93A6;">
+              Se o botão não funcionar, copie e cole este endereço no navegador:<br>
+              <a href="{{link}}" style="color:#E2623A;word-break:break-all;">{{link}}</a>
+            </td>
+          </tr>
+
+          <!-- Rodapé -->
+          <tr>
+            <td style="padding:32px 40px 32px 40px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-top:1px solid #F1E4DE;">
+                <tr>
+                  <td class="text-muted" style="padding-top:20px;font-family:'Plus Jakarta Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#8A93A6;">
+                    Se você não solicitou este convite, pode desconsiderar este e-mail.<br>
+                    Equipe Gymnasion
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

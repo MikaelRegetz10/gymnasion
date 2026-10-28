@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,6 +40,9 @@ public class PersonalConviteService {
     private final PasswordEncoder passwordEncoder;
     private final ModalidadeRepository modalidadeRepository;
     private final NotificacaoService notificacaoService;
+    private final EmailService emailService;
+    private final UsuarioService usuarioService;
+    private final TermoAceiteRepository termoAceiteRepository;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -67,11 +71,23 @@ public class PersonalConviteService {
 
         String fullUrl = frontendUrl + "/cadastro-aluno?token=" + token;
 
-        return new ConviteResponseDTO(fullUrl);
+        String emailEnviado = null;
+        if (dto.emailAluno() != null && !dto.emailAluno().trim().isBlank()) {
+            emailEnviado = dto.emailAluno().trim().toLowerCase();
+            emailService.enviarConviteAluno(emailEnviado, usuario.getNome(), modalidade.getNome(), fullUrl);
+        }
+
+        return new ConviteResponseDTO(fullUrl, emailEnviado);
     }
 
     @Transactional
     public AlunoResponseDTO registroAlunoConvite(UsuarioRequestDTO dto, String token){
+        if (!Boolean.TRUE.equals(dto.aceitouTermos())) {
+            throw new BusinessException("É obrigatório aceitar os Termos de Uso e Política de Privacidade para criar sua conta");
+        }
+
+        usuarioService.validarPoliticaSenhaForte(dto.password());
+
         PersonalConvites convite = personalConviteRepository.findByToken(token)
                 .orElseThrow(() -> new NotFoundException("Convite inválido ou não encontrado."));
 
@@ -105,6 +121,13 @@ public class PersonalConviteService {
                 .build();
 
         usuario = usuarioRepository.save(usuario);
+
+        TermoAceite termoAceite = TermoAceite.builder()
+                .usuario(usuario)
+                .versao("v1.0")
+                .dataAceite(OffsetDateTime.now())
+                .build();
+        termoAceiteRepository.save(termoAceite);
 
         Set<Modalidade> modalidades = new HashSet<>();
         modalidades.add(convite.getModalidade());

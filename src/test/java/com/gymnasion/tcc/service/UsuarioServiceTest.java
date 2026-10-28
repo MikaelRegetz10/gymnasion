@@ -49,6 +49,9 @@ class UsuarioServiceTest {
     @Mock
     private PreferenciaUsuarioRepository preferenciaUsuarioRepository;
 
+    @Mock
+    private TermoAceiteRepository termoAceiteRepository;
+
     @InjectMocks
     private UsuarioService usuarioService;
 
@@ -241,5 +244,78 @@ class UsuarioServiceTest {
         assertThatThrownBy(() -> usuarioService.alterarSenha(usuarioPersonal, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("A senha deve conter no mínimo 8 caracteres, incluindo letra maiúscula, minúscula, número e caractere especial.");
+    }
+
+    @Test
+    @DisplayName("US-01 C1 & US-17 C1: Cadastrar personal com sucesso, senha forte e registro de aceite dos termos")
+    void criarPersonalSucesso() {
+        when(usuarioRepository.findByEmail("novo@gymnasion.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.existsByCpf("11122233344")).thenReturn(false);
+        when(modalidadeRepository.findById(1L)).thenReturn(Optional.of(modalidade));
+        when(passwordEncoder.encode("Forte@2026")).thenReturn("hashForte");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario u = inv.getArgument(0);
+            u.setId(UUID.randomUUID());
+            return u;
+        });
+
+        RegistroPersonalCompletoDTO dto = new RegistroPersonalCompletoDTO(
+                "Professor Novo",
+                "novo@gymnasion.com",
+                "Forte@2026",
+                "111.222.333-44",
+                "11988887777",
+                1L,
+                true
+        );
+
+        UsuarioResponseDTO response = usuarioService.criarPersonal(dto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.nome()).isEqualTo("Professor Novo");
+        assertThat(response.email()).isEqualTo("novo@gymnasion.com");
+        verify(usuarioRepository).save(any(Usuario.class));
+        verify(personalTrainerRepository).save(any(PersonalTrainer.class));
+        verify(termoAceiteRepository).save(any(com.gymnasion.tcc.domain.TermoAceite.class));
+    }
+
+    @Test
+    @DisplayName("US-17 C2 / RN-013: Bloquear cadastro de personal quando não aceitou termos")
+    void criarPersonalRejeitaSemAceiteTermos() {
+        RegistroPersonalCompletoDTO dto = new RegistroPersonalCompletoDTO(
+                "Professor Novo",
+                "novo@gymnasion.com",
+                "Forte@2026",
+                "111.222.333-44",
+                "11988887777",
+                1L,
+                false
+        );
+
+        assertThatThrownBy(() -> usuarioService.criarPersonal(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("É obrigatório aceitar os Termos de Uso e Política de Privacidade para criar sua conta");
+
+        verifyNoInteractions(usuarioRepository, personalTrainerRepository, termoAceiteRepository);
+    }
+
+    @Test
+    @DisplayName("US-01 C1 / RN-002: Bloquear cadastro de personal com senha fraca")
+    void criarPersonalRejeitaSenhaFraca() {
+        RegistroPersonalCompletoDTO dto = new RegistroPersonalCompletoDTO(
+                "Professor Novo",
+                "novo@gymnasion.com",
+                "senha123", // sem maiúscula nem caractere especial
+                "111.222.333-44",
+                "11988887777",
+                1L,
+                true
+        );
+
+        assertThatThrownBy(() -> usuarioService.criarPersonal(dto))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("A senha deve conter no mínimo 8 caracteres, incluindo letra maiúscula, minúscula, número e caractere especial.");
+
+        verifyNoInteractions(usuarioRepository, personalTrainerRepository, termoAceiteRepository);
     }
 }

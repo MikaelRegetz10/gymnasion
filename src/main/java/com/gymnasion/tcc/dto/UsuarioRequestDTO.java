@@ -17,7 +17,7 @@ public record UsuarioRequestDTO(
     String email,
 
     @NotBlank(message = "A senha é obrigatória.")
-    @Size(min = 6, max = 255)
+    @Size(min = 8, max = 255)
     String password,
 
     @NotBlank(message = "O CPF é obrigatório.")
@@ -26,6 +26,7 @@ public record UsuarioRequestDTO(
 
     @NotBlank(message = "O celular é obrigatório.")
     @Size(max = 13)
-    String celular
+    String celular,
 
+    Boolean aceitouTermos
 ) {}

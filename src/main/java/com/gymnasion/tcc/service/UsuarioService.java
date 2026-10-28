@@ -3,6 +3,7 @@ package com.gymnasion.tcc.service;
 import com.gymnasion.tcc.domain.Modalidade;
 import com.gymnasion.tcc.domain.PersonalTrainer;
 import com.gymnasion.tcc.domain.PreferenciaUsuario;
+import com.gymnasion.tcc.domain.TermoAceite;
 import com.gymnasion.tcc.domain.Usuario;
 import com.gymnasion.tcc.domain.enums.Role;
 import com.gymnasion.tcc.dto.*;
@@ -29,9 +30,16 @@ public class UsuarioService {
     private final ModalidadeRepository modalidadeRepository;
     private final AlunoRepository alunoRepository;
     private final PreferenciaUsuarioRepository preferenciaUsuarioRepository;
+    private final TermoAceiteRepository termoAceiteRepository;
 
     @Transactional
     public UsuarioResponseDTO criarPersonal(RegistroPersonalCompletoDTO dto) {
+        if (!Boolean.TRUE.equals(dto.aceitouTermos())) {
+            throw new BusinessException("É obrigatório aceitar os Termos de Uso e Política de Privacidade para criar sua conta");
+        }
+
+        validarPoliticaSenhaForte(dto.password());
+
         String email = dto.email().toLowerCase().trim();
         if (usuarioRepository.findByEmail(email).isPresent()) {
             throw new IllegalArgumentException("Já possui um usuário vinculado a esse e-mail.");
@@ -63,6 +71,13 @@ public class UsuarioService {
                 .build();
 
         personalTrainerRepository.save(personalTrainer);
+
+        TermoAceite termoAceite = TermoAceite.builder()
+                .usuario(usuario)
+                .versao("v1.0")
+                .dataAceite(OffsetDateTime.now())
+                .build();
+        termoAceiteRepository.save(termoAceite);
 
         return new UsuarioResponseDTO(
                 usuario.getId(),
