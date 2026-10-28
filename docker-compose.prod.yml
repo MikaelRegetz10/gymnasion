@@ -1,0 +1,70 @@
+version: '3.8'
+
+# ===================================================================
+# DOCKER COMPOSE - PRODUÇÃO (Gymnasion)
+# ===================================================================
+# Uso: docker compose -f docker-compose.prod.yml up -d --build
+#
+# Observações:
+# - Não inclui Mailpit (os e-mails são entregues diretamente via SMTP real)
+# - Não expõe pgAdmin por segurança em ambiente produtivo
+# - As variáveis sensíveis devem estar preenchidas no .env (ou no ambiente da VPS/nuvem)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gymnasion_prod_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - gymnasion_prod_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gymnasion_prod_app
+    restart: always
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_SERVLET_CONTEXT_PATH: ${CONTEXT_PATH:-/api}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_AUTH: ${MAIL_AUTH:-true}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gymnasion_prod_network
+
+volumes:
+  postgres_prod_data:
+    driver: local
+
+networks:
+  gymnasion_prod_network:
+    driver: bridge
