@@ -1,70 +1,131 @@
-version: '3.8'
-
 # ===================================================================
 # DOCKER COMPOSE - PRODUÇÃO (Gymnasion)
 # ===================================================================
-# Uso: docker compose -f docker-compose.prod.yml up -d --build
+# VPS compartilhada: o Traefik (rede externa "web") é o único ponto de entrada.
+# Nenhuma porta é publicada no host (8080 e 5432 já estão em uso por outras stacks).
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
 #
 # Observações:
-# - Não inclui Mailpit (os e-mails são entregues diretamente via SMTP real)
-# - Não expõe pgAdmin por segurança em ambiente produtivo
-# - As variáveis sensíveis devem estar preenchidas no .env (ou no ambiente da VPS/nuvem)
+# - O nome do projeto, dos containers e do volume são os mesmos da stack atual:
+#   mudar qualquer um deles faz a API subir com um banco vazio e o front
+#   (gymnasion-web, que encaminha /api para gymnasion_app:8080) perder a API.
+# - Não inclui Mailpit nem pgAdmin; o banco fica só na rede interna.
+# - O schema é criado pelo Flyway; não há init.sql.
+# - O backup do banco é feito pelo backup global da VPS (dump de todo container postgres).
+# - As variáveis vêm do .env (CLI) ou das variáveis da stack (Portainer).
+
+name: gymnasion
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: gymnasion_prod_db
-    restart: always
+    container_name: gymnasion_db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
     volumes:
-      - postgres_prod_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - gymnasion_prod_network
+      - internal
+    # Intervalo de 60s (start_interval acelera só o boot): cada checagem é um
+    # "docker exec", e checagens frequentes em todas as stacks pesam na CPU da VPS
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 60s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
+    deploy:
+      resources:
+        limits:
+          cpus: "${DB_CPUS:-1.0}"
+          memory: ${DB_MEM_LIMIT:-512m}
+          pids: 200
+    shm_size: 128m
+    logging: *default-logging
 
   app:
+    image: ghcr.io/gymnasion-app/gymnasion-api:${IMAGE_TAG:-latest}
+    # Usado só com "up --build"; o normal é baixar a imagem pronta (a VPS tem pouca memória para compilar)
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: gymnasion_prod_app
-    restart: always
-    ports:
-      - "${SERVER_PORT:-8080}:8080"
-    env_file:
-      - .env
+    container_name: gymnasion_app
+    restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      SERVER_SERVLET_CONTEXT_PATH: ${CONTEXT_PATH:-/api}
-      MAIL_HOST: ${MAIL_HOST}
+      SERVER_PORT: 8080
+      CONTEXT_PATH: ${CONTEXT_PATH:-/api}
+      # Nome do container (único no host) em vez do nome do serviço: a API também
+      # está na rede "web", onde outra stack pode ter um serviço chamado "postgres"
+      DB_HOST: gymnasion_db
+      DB_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?defina ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?defina ADMIN_PASSWORD}
+      FRONTEND_URL: ${FRONTEND_URL:?defina FRONTEND_URL}
+      MAIL_HOST: ${MAIL_HOST:?defina MAIL_HOST}
       MAIL_PORT: ${MAIL_PORT:-587}
-      MAIL_USERNAME: ${MAIL_USERNAME}
-      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_AUTH: ${MAIL_AUTH:-true}
       MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
-      MAIL_FROM: ${MAIL_FROM}
+      MAIL_FROM: ${MAIL_FROM:?defina MAIL_FROM}
+      NOTIF_PENDENTES_ENABLED: ${NOTIF_PENDENTES_ENABLED:-true}
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID:-}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET:-}
+      STRAVA_REDIRECT_URI: ${STRAVA_REDIRECT_URI:-}
+      # Swagger / OpenAPI desligados em produção
+      SPRINGDOC_API_DOCS_ENABLED: "false"
+      SPRINGDOC_SWAGGER_UI_ENABLED: "false"
+      # Lido pela JVM independente do ENTRYPOINT da imagem. Heap em 65% do limite:
+      # o restante fica para metaspace, threads e buffers
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65.0 -XX:+ExitOnOutOfMemoryError}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - gymnasion_prod_network
+      - internal
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.gymnasion-api.rule=Host(`${API_DOMAIN:?defina API_DOMAIN}`)"
+      - "traefik.http.routers.gymnasion-api.entrypoints=websecure"
+      - "traefik.http.routers.gymnasion-api.tls=true"
+      - "traefik.http.routers.gymnasion-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.gymnasion-api.loadbalancer.server.port=8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "${APP_CPUS:-1.0}"
+          memory: ${APP_MEM_LIMIT:-768m}
+          pids: 300
+    logging: *default-logging
 
 volumes:
-  postgres_prod_data:
+  postgres_data:
     driver: local
 
 networks:
-  gymnasion_prod_network:
+  internal:
     driver: bridge
+  # Rede do Traefik, criada fora deste projeto
+  web:
+    external: true
