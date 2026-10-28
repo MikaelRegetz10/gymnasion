@@ -7,6 +7,8 @@ on:
   push:
     branches:
       - main
+  # Permite que o workflow de publicação da imagem reutilize estes testes
+  workflow_call:
 
 # Cancela execuções anteriores em andamento caso novos commits sejam enviados na mesma branch / PR
 concurrency:

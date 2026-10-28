@@ -1,0 +1,11 @@
+.env
+.env.*
+.git
+.github
+.idea
+.vscode
+target
+collections
+init.sql
+docker-compose*.yml
+*.md
