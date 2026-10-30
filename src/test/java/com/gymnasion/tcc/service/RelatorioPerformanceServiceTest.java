@@ -2,7 +2,11 @@ package com.gymnasion.tcc.service;
 
 import com.gymnasion.tcc.domain.*;
 import com.gymnasion.tcc.domain.enums.*;
-import com.gymnasion.tcc.dto.IntervaloRegistrosModalidadeDTO;
+import com.gymnasion.tcc.dto.DiaRegistrosMetricaDTO;
+import com.gymnasion.tcc.dto.DiaRegistrosModalidadeDTO;
+import com.gymnasion.tcc.dto.DisponibilidadeRelatorioDTO;
+import com.gymnasion.tcc.dto.DisponibilidadeRelatorioDTO.ModalidadeDisponivelDTO;
+import com.gymnasion.tcc.dto.FiltroRelatorioDTO;
 import com.gymnasion.tcc.dto.RelatorioPdfDTO;
 import com.gymnasion.tcc.exceptions.BusinessException;
 import com.gymnasion.tcc.exceptions.NotFoundException;
@@ -183,6 +187,28 @@ class RelatorioPerformanceServiceTest {
         );
     }
 
+    private FiltroRelatorioDTO filtro(Long modalidadeId, LocalDate dataInicio, LocalDate dataFim) {
+        return new FiltroRelatorioDTO(modalidadeId, dataInicio, dataFim, null, null, null);
+    }
+
+    private FiltroRelatorioDTO filtroMetricas(Metrica... metricas) {
+        Set<UUID> ids = new HashSet<>();
+        Arrays.stream(metricas).forEach(m -> ids.add(m.getId()));
+        return new FiltroRelatorioDTO(null, inicio, fim, null, ids, null);
+    }
+
+    private FiltroRelatorioDTO filtroConteudos(ConteudoRelatorio... conteudos) {
+        return new FiltroRelatorioDTO(null, inicio, fim, null, null, Set.of(conteudos));
+    }
+
+    private DiaRegistrosModalidadeDTO dia(Modalidade m, LocalDate data, long sessoes, long comRpe) {
+        return new DiaRegistrosModalidadeDTO(m.getId(), m.getNome(), data, sessoes, comRpe);
+    }
+
+    private DiaRegistrosMetricaDTO diaMetrica(Modalidade m, Metrica metrica, LocalDate data) {
+        return new DiaRegistrosMetricaDTO(m.getId(), metrica.getId(), metrica.getTitulo(), metrica.getTipo(), metrica.getAtivo(), data, 1L);
+    }
+
     private void mockPersonalComAluno() {
         when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
         when(alunoRepository.findByIdAndPersonalId(aluno.getId(), personalTrainer.getId())).thenReturn(Optional.of(aluno));
@@ -205,7 +231,7 @@ class RelatorioPerformanceServiceTest {
         mockPersonalComAluno();
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
 
-        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, inicio, fim);
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicio, fim));
 
         assertThat(new String(relatorio.conteudo(), 0, 5)).isEqualTo("%PDF-");
         assertThat(relatorio.nomeArquivo()).isEqualTo("relatorio-performance-yasmin-rezende-2026-03-01_2026-03-31.pdf");
@@ -232,7 +258,7 @@ class RelatorioPerformanceServiceTest {
         mockPersonalComAluno();
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
 
-        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, inicio, fim);
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicio, fim));
 
         String texto = extrairTexto(relatorio.conteudo());
         assertThat(texto).contains("Data planejada").contains("Data real").contains("09/03/2026").contains("10/03/2026");
@@ -244,7 +270,7 @@ class RelatorioPerformanceServiceTest {
         when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
 
-        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloAluno(usuarioAluno, null, inicio, fim);
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloAluno(usuarioAluno, filtro(null, inicio, fim));
 
         assertThat(extrairTexto(relatorio.conteudo())).contains("Yasmin Rezende").contains("Distância Percorrida");
     }
@@ -252,14 +278,17 @@ class RelatorioPerformanceServiceTest {
     @Test
     @DisplayName("US16 Cenário 3: Período sem dados informa a mensagem e sugere intervalo alternativo com registros")
     void US16_cenario3_periodoSemDados_lancaExcecaoComPeriodoSugerido() {
+        Modalidade tenis = Modalidade.builder().id(2L).nome("Tênis").build();
         mockPersonalComAluno();
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(List.of());
-        when(desempenhoRepository.findIntervalosRegistrosByAlunoId(aluno.getId())).thenReturn(List.of(
-                new IntervaloRegistrosModalidadeDTO(1L, LocalDate.of(2026, 1, 5), LocalDate.of(2026, 2, 20)),
-                new IntervaloRegistrosModalidadeDTO(2L, LocalDate.of(2025, 11, 1), LocalDate.of(2026, 1, 10))
+        when(desempenhoRepository.findDiasRegistrosByAlunoId(aluno.getId())).thenReturn(List.of(
+                dia(modalidade, LocalDate.of(2026, 1, 5), 1, 0),
+                dia(modalidade, LocalDate.of(2026, 2, 20), 1, 0),
+                dia(tenis, LocalDate.of(2025, 11, 1), 1, 0),
+                dia(tenis, LocalDate.of(2026, 1, 10), 1, 0)
         ));
 
-        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, inicio, fim))
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicio, fim)))
                 .isInstanceOf(RelatorioSemDadosException.class)
                 .hasMessage("Não há dados para o período selecionado")
                 .satisfies(ex -> {
@@ -273,14 +302,16 @@ class RelatorioPerformanceServiceTest {
     @Test
     @DisplayName("US16 Cenário 3: Com filtro de modalidade, o intervalo sugerido considera apenas os registros da modalidade")
     void US16_cenario3_periodoSemDadosComModalidade_sugereIntervaloDaModalidade() {
+        Modalidade tenis = Modalidade.builder().id(2L).nome("Tênis").build();
         mockPersonalComAluno();
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(List.of());
-        when(desempenhoRepository.findIntervalosRegistrosByAlunoId(aluno.getId())).thenReturn(List.of(
-                new IntervaloRegistrosModalidadeDTO(1L, LocalDate.of(2026, 1, 5), LocalDate.of(2026, 2, 20)),
-                new IntervaloRegistrosModalidadeDTO(2L, LocalDate.of(2025, 11, 1), LocalDate.of(2026, 1, 10))
+        when(desempenhoRepository.findDiasRegistrosByAlunoId(aluno.getId())).thenReturn(List.of(
+                dia(modalidade, LocalDate.of(2026, 1, 5), 1, 0),
+                dia(modalidade, LocalDate.of(2026, 2, 20), 1, 0),
+                dia(tenis, LocalDate.of(2025, 11, 1), 1, 0)
         ));
 
-        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), 1L, inicio, fim))
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(1L, inicio, fim)))
                 .isInstanceOf(RelatorioSemDadosException.class)
                 .satisfies(ex -> {
                     RelatorioSemDadosException semDados = (RelatorioSemDadosException) ex;
@@ -294,9 +325,8 @@ class RelatorioPerformanceServiceTest {
     void US16_cenario3_alunoSemNenhumRegistro_lancaExcecaoSemPeriodoSugerido() {
         mockPersonalComAluno();
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(List.of());
-        when(desempenhoRepository.findIntervalosRegistrosByAlunoId(aluno.getId())).thenReturn(List.of());
 
-        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, inicio, fim))
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicio, fim)))
                 .isInstanceOf(RelatorioSemDadosException.class)
                 .hasMessage("Não há dados para o período selecionado")
                 .satisfies(ex -> assertThat(((RelatorioSemDadosException) ex).possuiPeriodoSugerido()).isFalse());
@@ -309,7 +339,7 @@ class RelatorioPerformanceServiceTest {
         UUID alunoDeOutroPersonal = UUID.randomUUID();
         when(alunoRepository.findByIdAndPersonalId(alunoDeOutroPersonal, personalTrainer.getId())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, alunoDeOutroPersonal, null, inicio, fim))
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, alunoDeOutroPersonal, filtro(null, inicio, fim)))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("Aluno não encontrado para este Personal Trainer.");
     }
@@ -320,7 +350,7 @@ class RelatorioPerformanceServiceTest {
         aluno.setStatus(StatusConvite.INATIVO);
         when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
 
-        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloAluno(usuarioAluno, null, inicio, fim))
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloAluno(usuarioAluno, filtro(null, inicio, fim)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Erro. Este aluno está inativo.");
     }
@@ -332,7 +362,7 @@ class RelatorioPerformanceServiceTest {
         mockPersonalComAluno();
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
 
-        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, inicio, fim);
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicio, fim));
 
         assertThat(extrairTexto(relatorio.conteudo())).contains("Yasmin Rezende");
     }
@@ -343,7 +373,7 @@ class RelatorioPerformanceServiceTest {
         mockPersonalComAluno();
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
 
-        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, inicio, fim);
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicio, fim));
 
         assertThat(extrairTexto(relatorio.conteudo())).contains("Braçadas Antigas").contains("métrica descontinuada");
     }
@@ -354,7 +384,7 @@ class RelatorioPerformanceServiceTest {
         mockPersonalComAluno();
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
 
-        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, inicio, fim);
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicio, fim));
 
         assertThat(extrairTexto(relatorio.conteudo())).contains("não informado").contains("Nível de esforço (RPE)").contains("6,5");
     }
@@ -364,7 +394,7 @@ class RelatorioPerformanceServiceTest {
     void US16_periodoNaoInformado_lancaBusinessException() {
         mockPersonalComAluno();
 
-        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, null, fim))
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, null, fim)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Informe a data de início e a data de fim do período do relatório.");
     }
@@ -374,7 +404,7 @@ class RelatorioPerformanceServiceTest {
     void US16_periodoInvalido_dataInicioPosteriorAFim_lancaBusinessException() {
         mockPersonalComAluno();
 
-        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, fim, inicio))
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, fim, inicio)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("A data de início não pode ser posterior à data de fim.");
     }
@@ -385,9 +415,280 @@ class RelatorioPerformanceServiceTest {
         mockPersonalComAluno();
         when(desempenhoRepository.findIntervalosRegistrosByAlunoId(aluno.getId())).thenReturn(List.of());
 
-        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), 99L, inicio, fim))
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(99L, inicio, fim)))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("Modalidade não encontrada para este aluno.");
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Relatório traz apenas as métricas escolhidas")
+    void US16_metricasEscolhidas_relatorioSoTrazAsSelecionadas() throws IOException {
+        mockPersonalComAluno();
+        when(desempenhoRepository.findDiasRegistrosMetricasByAlunoId(aluno.getId()))
+                .thenReturn(List.of(diaMetrica(modalidade, metricaCarga, LocalDate.of(2026, 3, 2)), diaMetrica(modalidade, metricaTempo, LocalDate.of(2026, 3, 2))));
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
+
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtroMetricas(metricaCarga));
+
+        assertThat(extrairTexto(relatorio.conteudo()))
+                .contains("Distância Percorrida")
+                .contains("Sessões registradas")
+                .doesNotContain("Tempo 100m")
+                .doesNotContain("Braçadas Antigas");
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Modalidade sem nenhuma métrica escolhida fica fora do relatório")
+    void US16_metricasEscolhidas_excluiModalidadeSemMetricaSelecionada() throws IOException {
+        Modalidade tenis = Modalidade.builder().id(2L).nome("Tênis").build();
+        Metrica metricaTenis = Metrica.builder().id(UUID.randomUUID()).titulo("Saques").tipo(TipoMetrica.NUMERICO).ativo(true).build();
+        rotinaTreino.setModalidade(tenis);
+        Desempenho desempenhoTenis = criarDesempenho(LocalDate.of(2026, 3, 3), LocalDate.of(2026, 3, 3), 5, List.of(registro(metricaTenis, "40")));
+        rotinaTreino = RotinaTreino.builder().id(UUID.randomUUID()).titulo("Natação").modalidade(modalidade).build();
+        Desempenho desempenhoNatacao = criarDesempenho(LocalDate.of(2026, 3, 4), LocalDate.of(2026, 3, 4), 5, List.of(registro(metricaCarga, "1500")));
+
+        mockPersonalComAluno();
+        when(desempenhoRepository.findDiasRegistrosMetricasByAlunoId(aluno.getId())).thenReturn(List.of(diaMetrica(modalidade, metricaCarga, LocalDate.of(2026, 3, 4))));
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(List.of(desempenhoTenis, desempenhoNatacao));
+
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtroMetricas(metricaCarga));
+
+        assertThat(extrairTexto(relatorio.conteudo())).contains("Natação").doesNotContain("Tênis").doesNotContain("Saques");
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Métrica sem registros do aluno é recusada (RN-005/006)")
+    void US16_metricaSemRegistrosDoAluno_lancaNotFound() {
+        mockPersonalComAluno();
+        when(desempenhoRepository.findDiasRegistrosMetricasByAlunoId(aluno.getId())).thenReturn(List.of(diaMetrica(modalidade, metricaCarga, LocalDate.of(2026, 3, 2))));
+
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtroMetricas(metricaTempo)))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Métrica não encontrada para este aluno.");
+        verify(relatorioPdfGenerator, never()).gerar(any());
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Métrica escolhida sem registros no período sugere o intervalo da própria métrica")
+    void US16_metricaEscolhidaForaDoPeriodo_sugereIntervaloDaMetrica() {
+        List<DiaRegistrosMetricaDTO> diasMetricas = List.of(
+                diaMetrica(modalidade, metricaCarga, LocalDate.of(2026, 3, 2)),
+                diaMetrica(modalidade, metricaTempo, LocalDate.of(2026, 1, 12)),
+                diaMetrica(modalidade, metricaTempo, LocalDate.of(2026, 1, 19))
+        );
+        mockPersonalComAluno();
+        when(desempenhoRepository.findDiasRegistrosMetricasByAlunoId(aluno.getId())).thenReturn(diasMetricas);
+        when(desempenhoRepository.findDiasRegistrosByAlunoId(aluno.getId())).thenReturn(List.of(
+                dia(modalidade, LocalDate.of(2026, 1, 12), 1, 0),
+                dia(modalidade, LocalDate.of(2026, 1, 19), 1, 0),
+                dia(modalidade, LocalDate.of(2026, 3, 2), 1, 0)
+        ));
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(List.of(
+                criarDesempenho(LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 2), 6, List.of(registro(metricaCarga, "1500")))
+        ));
+
+        FiltroRelatorioDTO filtro = new FiltroRelatorioDTO(null, inicio, fim, null, Set.of(metricaTempo.getId()), Set.of(ConteudoRelatorio.VALORES));
+
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro))
+                .isInstanceOf(RelatorioSemDadosException.class)
+                .satisfies(ex -> {
+                    RelatorioSemDadosException semDados = (RelatorioSemDadosException) ex;
+                    assertThat(semDados.getDataInicioSugerida()).isEqualTo(LocalDate.of(2026, 1, 12));
+                    assertThat(semDados.getDataFimSugerida()).isEqualTo(LocalDate.of(2026, 1, 19));
+                });
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Relatório traz apenas os blocos escolhidos")
+    void US16_conteudosEscolhidos_relatorioSoTrazOsBlocosSelecionados() throws IOException {
+        mockPersonalComAluno();
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
+
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtroConteudos(ConteudoRelatorio.VALORES));
+
+        assertThat(extrairTexto(relatorio.conteudo()))
+                .contains("Valores registrados")
+                .contains("2.000")
+                .doesNotContain("Resumo do período")
+                .doesNotContain("Evolução")
+                .doesNotContain("Data planejada")
+                .doesNotContain("Nível de esforço (RPE)");
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Sem o bloco RPE, o gráfico e a coluna de RPE ficam fora do relatório")
+    void US16_semConteudoRpe_removeGraficoEColunaDeRpe() throws IOException {
+        mockPersonalComAluno();
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
+
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(),
+                filtroConteudos(ConteudoRelatorio.GRAFICOS, ConteudoRelatorio.SESSOES));
+
+        assertThat(extrairTexto(relatorio.conteudo()))
+                .contains("Evolução")
+                .contains("Tempo 100m")
+                .contains("Data planejada")
+                .doesNotContain("Nível de esforço (RPE)")
+                .doesNotContain("não informado");
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Só o bloco RPE, sem RPE no período, sugere as datas com RPE informado")
+    void US16_soRpeSemRegistrosNoPeriodo_sugereIntervaloComRpe() {
+        mockPersonalComAluno();
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(List.of(
+                criarDesempenho(LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 2), null, List.of(registro(metricaCarga, "1500")))
+        ));
+        when(desempenhoRepository.findDiasRegistrosByAlunoId(aluno.getId())).thenReturn(List.of(
+                dia(modalidade, LocalDate.of(2026, 3, 2), 1, 0),
+                dia(modalidade, LocalDate.of(2026, 2, 9), 1, 1),
+                dia(modalidade, LocalDate.of(2026, 1, 5), 1, 0)
+        ));
+
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtroConteudos(ConteudoRelatorio.RPE)))
+                .isInstanceOf(RelatorioSemDadosException.class)
+                .satisfies(ex -> {
+                    RelatorioSemDadosException semDados = (RelatorioSemDadosException) ex;
+                    assertThat(semDados.getDataInicioSugerida()).isEqualTo(LocalDate.of(2026, 2, 9));
+                    assertThat(semDados.getDataFimSugerida()).isEqualTo(LocalDate.of(2026, 2, 9));
+                });
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Só gráficos com métricas de texto não gera relatório vazio")
+    void US16_soGraficosComMetricasDeTexto_lancaSemDados() {
+        Metrica metricaTexto = Metrica.builder().id(UUID.randomUUID()).titulo("Sensação").tipo(TipoMetrica.TEXTO).ativo(true).build();
+        mockPersonalComAluno();
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(List.of(
+                criarDesempenho(LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 2), 6, List.of(registro(metricaTexto, "Boa")))
+        ));
+
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtroConteudos(ConteudoRelatorio.GRAFICOS)))
+                .isInstanceOf(RelatorioSemDadosException.class)
+                .hasMessage("Não há dados para o período selecionado");
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Relatório traz apenas as datas escolhidas e informa a quantidade")
+    void US16_datasEscolhidas_relatorioSoTrazAsSelecionadas() throws IOException {
+        mockPersonalComAluno();
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
+
+        FiltroRelatorioDTO filtro = new FiltroRelatorioDTO(null, inicio, fim,
+                Set.of(LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 16)), null, null);
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro);
+
+        assertThat(extrairTexto(relatorio.conteudo()))
+                .contains("2 selecionadas")
+                .contains("01/03/2026 – 31/03/2026")
+                .contains("02/03/2026")
+                .contains("16/03/2026")
+                .doesNotContain("10/03/2026")
+                .doesNotContain("09/03/2026")
+                .doesNotContain("1.800");
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Sem datas escolhidas, o relatório não menciona a seleção")
+    void US16_semDatasEscolhidas_naoInformaSelecao() throws IOException {
+        mockPersonalComAluno();
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
+
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicio, fim));
+
+        assertThat(extrairTexto(relatorio.conteudo())).doesNotContain("selecionada").contains("10/03/2026");
+    }
+
+    @Test
+    @DisplayName("US16 Personalização: Datas escolhidas sem registros no período retornam sem dados")
+    void US16_datasEscolhidasSemRegistros_lancaSemDados() {
+        mockPersonalComAluno();
+        when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicio, fim)).thenReturn(historicoPadrao());
+
+        FiltroRelatorioDTO filtro = new FiltroRelatorioDTO(null, inicio, fim, Set.of(LocalDate.of(2026, 3, 3)), null, null);
+
+        assertThatThrownBy(() -> relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro))
+                .isInstanceOf(RelatorioSemDadosException.class)
+                .hasMessage("Não há dados para o período selecionado");
+    }
+
+    @Test
+    @DisplayName("US16 Disponibilidade: Lista datas, datas com RPE e métricas por modalidade")
+    void US16_disponibilidade_listaDatasEMetricasPorModalidade() {
+        Modalidade tenis = Modalidade.builder().id(2L).nome("Tênis").build();
+        LocalDate dia1 = LocalDate.of(2026, 3, 2);
+        LocalDate dia2 = LocalDate.of(2026, 3, 10);
+        mockPersonalComAluno();
+        when(desempenhoRepository.findDiasRegistrosByAlunoId(aluno.getId())).thenReturn(List.of(
+                dia(modalidade, dia2, 2, 0),
+                dia(modalidade, dia1, 1, 1),
+                dia(tenis, LocalDate.of(2025, 12, 1), 1, 0)
+        ));
+        when(desempenhoRepository.findDiasRegistrosMetricasByAlunoId(aluno.getId())).thenReturn(List.of(
+                diaMetrica(modalidade, metricaTempo, dia2),
+                diaMetrica(modalidade, metricaCarga, dia2),
+                diaMetrica(modalidade, metricaCarga, dia1),
+                diaMetrica(modalidade, metricaDescontinuada, dia1)
+        ));
+
+        DisponibilidadeRelatorioDTO disponibilidade = relatorioPerformanceService.consultarDisponibilidadePeloPersonal(usuarioPersonal, aluno.getId());
+
+        assertThat(disponibilidade.dataInicio()).isEqualTo(LocalDate.of(2025, 12, 1));
+        assertThat(disponibilidade.dataFim()).isEqualTo(dia2);
+        assertThat(disponibilidade.totalSessoes()).isEqualTo(4);
+        assertThat(disponibilidade.modalidades()).extracting(ModalidadeDisponivelDTO::modalidade).containsExactly("Natação", "Tênis");
+
+        ModalidadeDisponivelDTO natacao = disponibilidade.modalidades().get(0);
+        assertThat(natacao.datas()).containsExactly(dia1, dia2);
+        assertThat(natacao.datasRpe()).containsExactly(dia1);
+        assertThat(natacao.totalSessoes()).isEqualTo(3);
+        assertThat(natacao.metricas()).extracting(m -> m.titulo())
+                .containsExactly("Braçadas Antigas", "Distância Percorrida", "Tempo 100m");
+        assertThat(natacao.metricas().get(1).datas()).containsExactly(dia1, dia2);
+        assertThat(natacao.metricas().get(1).totalRegistros()).isEqualTo(2);
+        assertThat(natacao.metricas().get(0).descontinuada()).isTrue();
+        assertThat(natacao.metricas().get(0).statusMetrica()).isEqualTo("métrica descontinuada");
+
+        assertThat(disponibilidade.modalidades().get(1).metricas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("US16 Disponibilidade: Aluno sem registros recebe lista vazia e intervalo nulo")
+    void US16_disponibilidade_semRegistros_retornaVazio() {
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+
+        DisponibilidadeRelatorioDTO disponibilidade = relatorioPerformanceService.consultarDisponibilidadePeloAluno(usuarioAluno);
+
+        assertThat(disponibilidade.modalidades()).isEmpty();
+        assertThat(disponibilidade.dataInicio()).isNull();
+        assertThat(disponibilidade.dataFim()).isNull();
+        assertThat(disponibilidade.totalSessoes()).isZero();
+    }
+
+    @Test
+    @DisplayName("US16 RN-006: Personal não consulta a disponibilidade de aluno de outro personal")
+    void US16_RN006_disponibilidade_personalDeOutroAluno_lancaNotFound() {
+        when(personalTrainerRepository.getByUsuario(usuarioPersonal)).thenReturn(Optional.of(personalTrainer));
+        UUID alunoDeOutroPersonal = UUID.randomUUID();
+        when(alunoRepository.findByIdAndPersonalId(alunoDeOutroPersonal, personalTrainer.getId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> relatorioPerformanceService.consultarDisponibilidadePeloPersonal(usuarioPersonal, alunoDeOutroPersonal))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Aluno não encontrado para este Personal Trainer.");
+    }
+
+    @Test
+    @DisplayName("US16 RN-014: Aluno inativo não consulta a própria disponibilidade, mas o personal consulta")
+    void US16_RN014_disponibilidade_alunoInativo() {
+        aluno.setStatus(StatusConvite.INATIVO);
+        when(alunoRepository.findByUsuario(usuarioAluno)).thenReturn(Optional.of(aluno));
+        mockPersonalComAluno();
+        when(desempenhoRepository.findDiasRegistrosByAlunoId(aluno.getId())).thenReturn(List.of(dia(modalidade, LocalDate.of(2026, 3, 2), 1, 1)));
+
+        assertThatThrownBy(() -> relatorioPerformanceService.consultarDisponibilidadePeloAluno(usuarioAluno))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Erro. Este aluno está inativo.");
+        assertThat(relatorioPerformanceService.consultarDisponibilidadePeloPersonal(usuarioPersonal, aluno.getId()).modalidades()).hasSize(1);
     }
 
     @Test
@@ -410,7 +711,7 @@ class RelatorioPerformanceServiceTest {
         when(desempenhoRepository.findByAlunoIdAndPeriodoWithMetricas(aluno.getId(), inicioAmplo, fimAmplo)).thenReturn(desempenhos);
 
         long inicioExecucao = System.nanoTime();
-        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), null, inicioAmplo, fimAmplo);
+        RelatorioPdfDTO relatorio = relatorioPerformanceService.gerarRelatorioPeloPersonal(usuarioPersonal, aluno.getId(), filtro(null, inicioAmplo, fimAmplo));
         Duration tempo = Duration.ofNanos(System.nanoTime() - inicioExecucao);
 
         assertThat(relatorio.conteudo()).isNotEmpty();

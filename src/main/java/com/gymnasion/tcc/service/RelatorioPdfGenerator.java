@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.service;
 
+import com.gymnasion.tcc.domain.enums.ConteudoRelatorio;
 import com.gymnasion.tcc.domain.enums.TipoMetrica;
 import com.gymnasion.tcc.dto.DashboardEvolucaoResponseDTO.EvolucaoRpeDashboardDTO;
 import com.gymnasion.tcc.dto.DashboardEvolucaoResponseDTO.PontoMetricaDashboardDTO;
@@ -115,7 +116,7 @@ public class RelatorioPdfGenerator {
         documento.open();
         adicionarCabecalho(documento, writer, relatorio);
         for (SecaoModalidadeRelatorioDTO secao : relatorio.secoes()) {
-            adicionarSecaoModalidade(documento, writer, secao);
+            adicionarSecaoModalidade(documento, writer, secao, relatorio.conteudos());
         }
         documento.close();
         return saida.toByteArray();
@@ -164,6 +165,12 @@ public class RelatorioPdfGenerator {
         detalhes.add(new Chunk("      Período  ", fonte(fonteSemiBold, 8.5f, INK_500)));
         detalhes.add(new Chunk(relatorio.dataInicio().format(FORMATO_DATA) + " – " + relatorio.dataFim().format(FORMATO_DATA),
                 fonte(fonteRegular, 9, INK_700)));
+        if (relatorio.totalDatasSelecionadas() != null) {
+            // Datas escolhidas uma a uma: o período é só o intervalo entre a primeira e a última
+            int total = relatorio.totalDatasSelecionadas();
+            detalhes.add(new Chunk("      Datas  ", fonte(fonteSemiBold, 8.5f, INK_500)));
+            detalhes.add(new Chunk(total + (total == 1 ? " selecionada" : " selecionadas"), fonte(fonteRegular, 9, INK_700)));
+        }
         faixa.addElement(detalhes);
 
         PdfPTable tabelaFaixa = new PdfPTable(1);
@@ -172,17 +179,23 @@ public class RelatorioPdfGenerator {
         documento.add(tabelaFaixa);
     }
 
-    private void adicionarSecaoModalidade(Document documento, PdfWriter writer, SecaoModalidadeRelatorioDTO secao) {
+    private void adicionarSecaoModalidade(Document documento, PdfWriter writer, SecaoModalidadeRelatorioDTO secao, Set<ConteudoRelatorio> conteudos) {
         garantirEspaco(documento, writer, 140);
         Color[] cores = CORES_MODALIDADES.getOrDefault(chaveModalidade(secao.modalidade()), new Color[]{INK_700, BACKGROUND});
         PdfPTable etiqueta = criarSelo(secao.modalidade(), cores[1], cores[0], Element.ALIGN_LEFT);
         etiqueta.setSpacingBefore(20);
         documento.add(etiqueta);
 
-        adicionarResumo(documento, secao.resumoGeral());
-        adicionarEvolucao(documento, writer, secao);
-        adicionarSessoes(documento, writer, secao.sessoes());
-        adicionarValoresRegistrados(documento, writer, secao);
+        if (conteudos.contains(ConteudoRelatorio.RESUMO)) {
+            adicionarResumo(documento, secao.resumoGeral());
+        }
+        adicionarEvolucao(documento, writer, secao, conteudos);
+        if (conteudos.contains(ConteudoRelatorio.SESSOES)) {
+            adicionarSessoes(documento, writer, secao.sessoes(), conteudos.contains(ConteudoRelatorio.RPE));
+        }
+        if (conteudos.contains(ConteudoRelatorio.VALORES)) {
+            adicionarValoresRegistrados(documento, writer, secao);
+        }
     }
 
     private void adicionarResumo(Document documento, ResumoGeralDashboardDTO resumo) {
@@ -210,21 +223,26 @@ public class RelatorioPdfGenerator {
         return celula;
     }
 
-    private void adicionarEvolucao(Document documento, PdfWriter writer, SecaoModalidadeRelatorioDTO secao) {
-        garantirEspaco(documento, writer, 200);
-        documento.add(criarTituloSecao("Evolução", "Variação entre o primeiro e o último registro do período"));
-
+    private void adicionarEvolucao(Document documento, PdfWriter writer, SecaoModalidadeRelatorioDTO secao, Set<ConteudoRelatorio> conteudos) {
         float larguraConteudo = documento.right() - documento.left();
         float larguraGrafico = larguraConteudo / 2 - 2 * (ESPACO_ENTRE_CARDS + PADDING_CARD);
 
         List<PdfPCell> cards = new ArrayList<>();
         int indiceCor = 0;
-        for (SerieMetricaDashboardDTO metrica : secao.metricas()) {
-            // Métricas de texto não possuem gráfico, assim como na tela de evolução
-            if (metrica.tipo() == TipoMetrica.TEXTO) continue;
-            cards.add(criarCardMetrica(writer, metrica, CORES_SERIES[indiceCor++ % CORES_SERIES.length], larguraGrafico));
+        if (conteudos.contains(ConteudoRelatorio.GRAFICOS)) {
+            for (SerieMetricaDashboardDTO metrica : secao.metricas()) {
+                // Métricas de texto não possuem gráfico, assim como na tela de evolução
+                if (metrica.tipo() == TipoMetrica.TEXTO) continue;
+                cards.add(criarCardMetrica(writer, metrica, CORES_SERIES[indiceCor++ % CORES_SERIES.length], larguraGrafico));
+            }
         }
-        cards.add(criarCardRpe(writer, secao.evolucaoRpe(), larguraGrafico));
+        if (conteudos.contains(ConteudoRelatorio.RPE)) {
+            cards.add(criarCardRpe(writer, secao.evolucaoRpe(), larguraGrafico));
+        }
+        if (cards.isEmpty()) return;
+
+        garantirEspaco(documento, writer, 200);
+        documento.add(criarTituloSecao("Evolução", "Variação entre o primeiro e o último registro do período"));
 
         PdfPTable grade = new PdfPTable(2);
         grade.setWidthPercentage(100);
@@ -411,20 +429,24 @@ public class RelatorioPdfGenerator {
         return imagem;
     }
 
-    private void adicionarSessoes(Document documento, PdfWriter writer, List<SessaoRelatorioDTO> sessoes) {
+    private void adicionarSessoes(Document documento, PdfWriter writer, List<SessaoRelatorioDTO> sessoes, boolean incluirRpe) {
         garantirEspaco(documento, writer, 120);
         documento.add(criarTituloSecao("Sessões", "Data planejada e data real de execução registradas separadamente"));
 
-        PdfPTable tabela = criarTabela(new float[]{1.2f, 1.2f, 1, 1.2f, 1}, "Data planejada", "Data real", "Duração", "Status", "RPE");
+        PdfPTable tabela = incluirRpe
+                ? criarTabela(new float[]{1.2f, 1.2f, 1, 1.2f, 1}, "Data planejada", "Data real", "Duração", "Status", "RPE")
+                : criarTabela(new float[]{1.2f, 1.2f, 1, 1.2f}, "Data planejada", "Data real", "Duração", "Status");
         for (SessaoRelatorioDTO sessao : sessoes) {
             adicionarCelula(tabela, formatarData(sessao.dataPlanejada()), INK_700);
             adicionarCelula(tabela, formatarData(sessao.dataReal()), INK_700);
             adicionarCelula(tabela, sessao.duracao() != null ? sessao.duracao() + " min" : "—", INK_700);
             boolean concluida = "Concluída".equals(sessao.status());
             adicionarCelulaSelo(tabela, sessao.status(), concluida ? SUCCESS_50 : BACKGROUND, concluida ? SUCCESS_700 : INK_700);
-            // US-20 C2: RPE pulado aparece como "não informado"
-            boolean rpeInformado = !"não informado".equals(sessao.rpe());
-            adicionarCelula(tabela, sessao.rpe(), rpeInformado ? INK_700 : INK_500);
+            if (incluirRpe) {
+                // US-20 C2: RPE pulado aparece como "não informado"
+                boolean rpeInformado = !"não informado".equals(sessao.rpe());
+                adicionarCelula(tabela, sessao.rpe(), rpeInformado ? INK_700 : INK_500);
+            }
         }
         documento.add(tabela);
     }

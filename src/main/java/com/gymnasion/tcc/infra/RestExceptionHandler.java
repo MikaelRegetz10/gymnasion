@@ -14,6 +14,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -41,6 +42,18 @@ public class RestExceptionHandler {
         );
 
         problemDetail.setProperty("invalidFields", invalidFields);
+        return problemDetail;
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Valor inválido para o parâmetro '" + ex.getName() + "'."
+        );
+        problemDetail.setTitle("Requisição Inválida");
+        problemDetail.setType(URI.create("https://api.gymnasion.com/errors/requisicao-invalida"));
+        problemDetail.setProperty("timestamp", Instant.now());
         return problemDetail;
     }
 
