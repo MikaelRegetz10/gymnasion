@@ -80,3 +80,25 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy na VPS (Portainer)
+    needs: build-and-push
+    # Só deploya a partir da main (tags vX.Y.Z e execuções manuais em outras branches não)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Chamar o webhook da stack
+        env:
+          WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+          CF_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          status=$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 -X POST \
+            -H "CF-Access-Client-Id: $CF_ID" \
+            -H "CF-Access-Client-Secret: $CF_SECRET" \
+            "$WEBHOOK_URL")
+          echo "Portainer respondeu HTTP $status"
+          # 302/403 = barrado no Cloudflare Access (token errado ou vencido)
+          [ "${status:0:1}" = "2" ] || exit 1
