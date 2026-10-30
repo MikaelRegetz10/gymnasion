@@ -1,5 +1,6 @@
 package com.gymnasion.tcc.dto;
 
+import com.gymnasion.tcc.domain.enums.ConteudoRelatorio;
 import com.gymnasion.tcc.dto.DashboardEvolucaoResponseDTO.EvolucaoRpeDashboardDTO;
 import com.gymnasion.tcc.dto.DashboardEvolucaoResponseDTO.ResumoGeralDashboardDTO;
 import com.gymnasion.tcc.dto.DashboardEvolucaoResponseDTO.SerieMetricaDashboardDTO;
@@ -7,6 +8,7 @@ import com.gymnasion.tcc.dto.DashboardEvolucaoResponseDTO.SerieMetricaDashboardD
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -17,7 +19,9 @@ public record RelatorioPerformanceDTO(
         String nomePersonal,
         LocalDate dataInicio,
         LocalDate dataFim,
+        Integer totalDatasSelecionadas,
         OffsetDateTime dataGeracao,
+        Set<ConteudoRelatorio> conteudos,
         List<SecaoModalidadeRelatorioDTO> secoes
 ) {
 
